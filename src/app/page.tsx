@@ -60,7 +60,7 @@ export default function Home() {
              <div className="text-center md:text-left">
               <h2 className="text-3xl md:text-4xl font-bold font-headline mb-4">Discover Content</h2>
               <p className="text-lg text-muted-foreground mb-6">
-                Search across titles, descriptions, user profiles, and tagged topics. Your next inspiration is just a search away.
+                Search across titles, descriptions, user profiles, and tagged topics.
               </p>
               <Button asChild variant="link" className="p-0 text-base">
                 <Link href="#">Explore Now <ArrowRight className="ml-2 w-4 h-4" /></Link>

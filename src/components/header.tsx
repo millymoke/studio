@@ -32,7 +32,7 @@ export default function Header() {
           {isLoggedIn ? (
             <>
               <Button asChild>
-                <Link href="#"><Upload className="mr-2"/>Upload</Link>
+                <Link href="/upload"><Upload className="mr-2"/>Upload</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/one-time-link"><Lock className="mr-2"/>Secure Share</Link>
@@ -55,9 +55,11 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
                     <span>Log out</span>
