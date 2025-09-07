@@ -11,7 +11,6 @@ export default function Footer() {
           © {new Date().getFullYear()} All rights reserved
         </p>
         <div className="flex items-center gap-4">
-          <Button variant="outline">Support</Button>
           <Button variant="outline">
             <MessageSquare className="mr-2" />
             Chat with Admin
