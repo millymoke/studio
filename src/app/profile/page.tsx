@@ -285,9 +285,6 @@ export default function ProfilePage() {
                                     </div>
                                 ))}
                             </div>
-                            {!isLoading && !hasMore && (
-                                <p className="text-center text-muted-foreground mt-8">You've reached the end!</p>
-                            )}
                         </CardContent>
                     </Card>
                 </div>
