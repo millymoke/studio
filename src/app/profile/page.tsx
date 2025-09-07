@@ -224,20 +224,28 @@ export default function ProfilePage() {
 
         switch (upload.type) {
             case 'video':
-                return <p>Video player placeholder for {upload.title}</p>;
+                 return (
+                    <div className="w-full aspect-video bg-black rounded-md flex flex-col items-center justify-center text-white">
+                        <PlayCircle className="w-20 h-20 mb-4" />
+                        <h3 className="text-xl font-bold">{upload.title}</h3>
+                        <p>Video player placeholder</p>
+                    </div>
+                );
             case 'document':
                  return (
-                    <div className="prose dark:prose-invert">
-                        <h2>{upload.title}</h2>
-                        <p>This is where the document content for '{upload.title}' would be displayed in PDF format.</p>
-                        <p>{upload.description}</p>
+                    <div className="w-full aspect-[4/5] bg-muted rounded-md flex flex-col items-center justify-center p-8 text-center border">
+                        <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                        <h3 className="text-xl font-bold">{upload.title}</h3>
+                        <p className="text-muted-foreground">This is where the PDF content for '{upload.title}' would be displayed.</p>
+                         <p className="mt-4 text-sm">{upload.description}</p>
                     </div>
                 );
             case 'article':
                 return (
-                    <div className="prose dark:prose-invert">
-                        <h2>{upload.title}</h2>
+                    <div className="prose dark:prose-invert max-w-none">
+                        <h1>{upload.title}</h1>
                         <p>{upload.description}</p>
+                        {/* In a real app, you would render the full article content here */}
                     </div>
                 );
             case 'image':
@@ -371,3 +379,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
