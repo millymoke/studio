@@ -22,6 +22,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
+import type { Upload, UploadedFile } from "@/lib/types";
+import { readFileAsDataURL } from "@/lib/utils";
+
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required."),
@@ -54,7 +58,7 @@ export function ArticleForm() {
   const handleCoverPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      form.setValue('coverPhoto', e.target.files);
+      form.setValue('coverPhoto', file);
       setCoverPreview(URL.createObjectURL(file));
     } else {
       form.setValue('coverPhoto', undefined);
@@ -66,19 +70,54 @@ export function ArticleForm() {
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
 
-    console.log("Article Form values:", values);
-    // Mock API call for upload
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Article Published!",
-      description: "Your article has been successfully published.",
-    });
+    try {
+      let coverPhotoData: UploadedFile | undefined;
+      if (values.coverPhoto) {
+          const preview = await readFileAsDataURL(values.coverPhoto);
+          coverPhotoData = {
+              file: { name: values.coverPhoto.name, type: values.coverPhoto.type },
+              preview,
+          };
+      }
+      
+      const newArticle: Upload = {
+        id: Date.now().toString(),
+        type: 'article',
+        title: values.title,
+        description: values.content.substring(0, 100), // Use snippet of content as description
+        tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
+        link: values.link || "",
+        displayOption: 'individual',
+        files: [
+            {
+                file: new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain' }),
+                coverPhoto: coverPhotoData,
+            }
+        ]
+      }
 
-    form.reset();
-    setCoverPreview(null);
-    setIsLoading(false);
-    router.push('/profile');
+      const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
+      localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newArticle, ...existingUploads]));
+
+      toast({
+        title: "Article Published!",
+        description: "Your article has been successfully published.",
+      });
+
+      form.reset();
+      setCoverPreview(null);
+      router.push('/profile');
+
+    } catch (error) {
+        console.error("Failed to submit article", error)
+        toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: "There was a problem saving your article.",
+        });
+    } finally {
+        setIsLoading(false);
+    }
   }
 
   return (
@@ -112,20 +151,15 @@ export function ArticleForm() {
           )}
         />
         
-        <FormField
-          control={form.control}
-          name="coverPhoto"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cover Photo (Optional)</FormLabel>
-              <FormControl>
-                 <Input type="file" accept="image/*" onChange={handleCoverPhotoChange} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
-              </FormControl>
-              <FormDescription>Upload a cover photo for your article.</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <FormItem>
+            <FormLabel>Cover Photo (Optional)</FormLabel>
+            <FormControl>
+                <Input type="file" accept="image/*" {...coverPhotoRef} onChange={handleCoverPhotoChange} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
+            </FormControl>
+            <FormDescription>Upload a cover photo for your article.</FormDescription>
+            <FormMessage />
+        </FormItem>
+
 
         {coverPreview && (
             <div className="w-full">

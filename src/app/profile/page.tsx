@@ -13,32 +13,26 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { EditPostForm } from '@/components/edit-post-form';
-
-
-export interface Upload {
-  id: number;
-  type: 'video' | 'article' | 'image';
-  src: string;
-  title: string;
-  description: string;
-  link: string;
-  tags: string[];
-  altText?: string;
-}
+import type { Upload } from '@/lib/types';
+import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
-    const id = i + offset;
-    const type = id % 3 === 0 ? 'video' : (id % 3 === 1 ? 'article' : 'image');
+    const id = (i + offset).toString();
+    const type = i % 3 === 0 ? 'video' : (i % 3 === 1 ? 'article' : 'image');
     return {
       id,
       type: type,
-      src: `https://picsum.photos/400/500?random=${id + 1}`,
-      title: type === 'article' ? `My Awesome Article ${id + 1}` : `Shared Content ${id + 1}`,
+      title: type === 'article' ? `My Awesome Article ${id}` : `Shared Content ${id}`,
       description: 'A captivating piece of content I wanted to share with the world.',
       link: 'example.com',
       tags: ['inspiration', 'design', 'art'],
-      altText: 'An example of beautiful content',
+      files: [{
+        preview: `https://picsum.photos/400/500?random=${i + 1}`,
+        altText: 'An example of beautiful content',
+        file: new File([], `file${i}.jpg`)
+      }],
+      displayOption: 'individual'
     };
   });
 };
@@ -57,22 +51,77 @@ export default function ProfilePage() {
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
     const [editingUpload, setEditingUpload] = useState<Upload | null>(null);
-
-    const loadMoreUploads = useCallback(async () => {
-        if (isLoading || !hasMore) return;
-        setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const newUploads = generateMockUploads(8, uploads.length);
-        setUploads(prev => [...prev, ...newUploads]);
-        if (uploads.length >= 32) {
-            setHasMore(false);
-        }
-        setIsLoading(false);
-    }, [isLoading, hasMore, uploads.length]);
+    const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
-        loadMoreUploads();
+        setIsClient(true);
     }, []);
+
+    const loadUploadsFromStorage = useCallback(() => {
+        if (typeof window === 'undefined') return [];
+        const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
+        if (storedUploads) {
+            try {
+                const parsedUploads = JSON.parse(storedUploads);
+                // Re-hydrate File objects as they don't serialize well
+                return parsedUploads.map((upload: any) => ({
+                    ...upload,
+                    files: upload.files.map((f: any) => ({...f, file: new File([], f.file.name, {type: f.file.type})}))
+                }));
+            } catch (e) {
+                console.error("Failed to parse uploads from localStorage", e);
+                return [];
+            }
+        }
+        return [];
+    }, []);
+
+    const loadMoreUploads = useCallback(async () => {
+        if (isLoading) return;
+        setIsLoading(true);
+        
+        // In a real app, this would be an API call.
+        // Here we simulate it with a timeout and mock data generation if local storage is empty.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const existingUploads = loadUploadsFromStorage();
+        if (uploads.length === 0 && existingUploads.length === 0) {
+            // First load and nothing in storage, use mock data
+            const newUploads = generateMockUploads(8);
+            setUploads(newUploads);
+            setHasMore(newUploads.length > 0);
+        } else if (uploads.length < existingUploads.length) {
+            // Load from storage in chunks
+            const nextUploads = existingUploads.slice(uploads.length, uploads.length + 8);
+            setUploads(prev => [...prev, ...nextUploads]);
+            setHasMore(uploads.length + nextUploads.length < existingUploads.length);
+        } else if (uploads.length === 0 && existingUploads.length > 0) {
+            const initialUploads = existingUploads.slice(0, 8);
+            setUploads(initialUploads);
+            setHasMore(initialUploads.length < existingUploads.length);
+        }
+        else {
+            setHasMore(false);
+        }
+        
+        setIsLoading(false);
+    }, [isLoading, uploads, loadUploadsFromStorage]);
+    
+    useEffect(() => {
+        if (isClient) {
+            const allUploads = loadUploadsFromStorage();
+            const initialUploads = allUploads.slice(0, 8);
+            setUploads(initialUploads);
+            setHasMore(initialUploads.length < allUploads.length);
+             if (allUploads.length === 0) {
+                // If storage is empty, generate initial mock data
+                const mockUploads = generateMockUploads(8);
+                setUploads(mockUploads);
+                setHasMore(true); // Assume there could be more mock data
+            }
+        }
+    }, [isClient, loadUploadsFromStorage]);
+
 
     const lastUploadElementRef = useCallback((node: HTMLDivElement) => {
         if (isLoading) return;
@@ -86,36 +135,52 @@ export default function ProfilePage() {
     }, [isLoading, hasMore, loadMoreUploads]);
     
     const handleUpdatePost = (updatedUpload: Upload) => {
-        setUploads(prevUploads =>
-            prevUploads.map(upload =>
-                upload.id === updatedUpload.id ? updatedUpload : upload
-            )
+        const allUploads = loadUploadsFromStorage();
+        const updatedUploads = allUploads.map(upload =>
+            upload.id === updatedUpload.id ? updatedUpload : upload
         );
+        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
+        setUploads(prev => prev.map(u => u.id === updatedUpload.id ? updatedUpload : u));
         setEditingUpload(null);
     };
 
     const renderUploadContent = (upload: Upload) => {
+        const firstFile = upload.files[0];
+        const previewSrc = firstFile?.coverPhoto?.preview || firstFile?.preview;
+
         switch (upload.type) {
             case 'video':
-                return (
+                 return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        <PlayCircle className="w-12 h-12" />
-                        <p className="font-bold mt-2">Video</p>
+                        {previewSrc ?
+                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
+                            <PlayCircle className="w-12 h-12" />
+                        }
+                         <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
+                            <PlayCircle className="w-12 h-12" />
+                            <p className="font-bold mt-2">Video</p>
+                        </div>
                     </div>
                 );
             case 'article':
                 return (
                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
-                        <FileText className="w-12 h-12" />
-                        <p className="font-bold mt-2">{upload.title}</p>
+                        {firstFile.coverPhoto?.preview ? 
+                            <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" /> 
+                            : <FileText className="w-12 h-12" />
+                        }
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
+                            <FileText className="w-12 h-12 opacity-80" />
+                            <p className="font-bold mt-2 z-10">{upload.title}</p>
+                        </div>
                     </div>
                 );
             case 'image':
             default:
                 return (
                      <Image 
-                        src={upload.src} 
-                        alt={upload.altText || upload.title} 
+                        src={previewSrc || "https://picsum.photos/400/500"}
+                        alt={firstFile?.altText || upload.title} 
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                         data-ai-hint="fashion outdoor"
@@ -171,9 +236,11 @@ export default function ProfilePage() {
                                             <div className="px-1">
                                                 <p className="font-semibold text-sm truncate">{upload.title}</p>
                                                 <p className="text-sm text-muted-foreground truncate">{upload.description}</p>
-                                                <a href={`https://${upload.link}`} className="text-xs text-primary hover:underline flex items-center gap-1 my-1">
-                                                <LinkIcon className="w-3 h-3"/> {upload.link}
+                                                {upload.link && (
+                                                <a href={upload.link.startsWith('http') ? upload.link : `https://${upload.link}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 my-1">
+                                                  <LinkIcon className="w-3 h-3"/> {upload.link}
                                                 </a>
+                                                )}
                                                 <div className="flex justify-between items-center mt-2">
                                                     <div className="flex gap-2">
                                                         <Button variant="ghost" size="icon" className="h-8 w-8">

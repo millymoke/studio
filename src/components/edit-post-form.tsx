@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Upload } from "@/app/profile/page";
+import type { Upload } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
+  title: z.string().min(1, "Title cannot be empty."),
   description: z.string().optional(),
   altText: z.string().optional(),
   link: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
@@ -39,8 +40,11 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      title: post.title || "",
       description: post.description || "",
-      altText: post.altText || "",
+      // NOTE: This only handles alt text for the FIRST image. 
+      // A more robust solution would handle this per-image.
+      altText: post.files[0]?.altText || "",
       link: post.link || "",
       tags: post.tags?.join(", ") || "",
     },
@@ -49,14 +53,18 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
   function onSubmit(values: FormValues) {
     const updatedPost: Upload = {
         ...post,
+        title: values.title,
         description: values.description || "",
-        altText: values.altText || "",
         link: values.link || "",
         tags: values.tags ? values.tags.split(",").map(tag => tag.trim()) : [],
+        files: post.files.map((file, index) => {
+            // Only update alt text for the first file for simplicity
+            if (index === 0) {
+                return {...file, altText: values.altText || ""}
+            }
+            return file;
+        })
     };
-    
-    // In a real app, you would make an API call here.
-    console.log("Updated Post Data:", updatedPost);
     
     onSave(updatedPost);
 
@@ -69,6 +77,20 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+        
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Post title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         
         <FormField
           control={form.control}
@@ -94,7 +116,7 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
                   <FormControl>
                     <Input placeholder="Descriptive alt text for the image" {...field} />
                   </FormControl>
-                  <FormDescription>Describe the image for accessibility.</FormDescription>
+                  <FormDescription>Describe the first image for accessibility.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -26,6 +26,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
+import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
+import { readFileAsDataURL } from "@/lib/utils";
 
 const fileSchema = z.object({
   file: z.any(),
@@ -46,6 +49,13 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const getFileType = (file: File): 'image' | 'video' | 'document' => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'document';
+}
+
+
 export function UploadForm() {
   const { toast } = useToast();
   const router = useRouter();
@@ -63,7 +73,7 @@ export function UploadForm() {
     },
   });
   
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "files"
   });
@@ -81,23 +91,72 @@ export function UploadForm() {
       append(newFiles);
     }
   };
+  
+  const handleCoverPhotoChange = async (file: File, index: number) => {
+    const preview = await readFileAsDataURL(file);
+    const coverFile: FileWithPreview = {
+        file,
+        preview,
+    }
+    update(index, { ...fields[index], coverPhoto: coverFile });
+  };
+
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
 
-    console.log("Form values:", values);
-    // Mock API call for upload
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Files Uploaded!",
-      description: "Your files have been successfully uploaded.",
-    });
+    try {
+        const fileProcessingPromises = values.files.map(async (f) => {
+            const fileData: UploadedFile = {
+                file: { name: f.file.name, type: f.file.type },
+                altText: f.altText,
+                preview: f.preview,
+            };
+            if (f.coverPhoto) {
+                const coverPreview = await readFileAsDataURL(f.coverPhoto);
+                fileData.coverPhoto = {
+                    file: {name: f.coverPhoto.name, type: f.coverPhoto.type},
+                    preview: coverPreview
+                };
+            }
+            return fileData;
+        });
 
-    form.reset();
-    remove();
-    setIsLoading(false);
-    router.push('/profile');
+        const processedFiles = await Promise.all(fileProcessingPromises);
+        
+        const newUpload: Upload = {
+            id: Date.now().toString(),
+            type: getFileType(values.files[0].file),
+            title: values.title,
+            description: values.description || '',
+            tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
+            link: values.link || '',
+            displayOption: values.displayOption,
+            files: processedFiles
+        };
+
+        const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
+        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newUpload, ...existingUploads]));
+
+        toast({
+          title: "Files Uploaded!",
+          description: "Your files have been successfully uploaded.",
+        });
+
+        form.reset();
+        remove();
+        router.push('/profile');
+
+    } catch (error) {
+        console.error("Failed to submit files", error);
+        toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: "There was a problem saving your files.",
+        });
+    } finally {
+        setIsLoading(false);
+    }
   }
 
   const renderFilePreview = (file: File, previewUrl?: string) => {
@@ -137,6 +196,7 @@ export function UploadForm() {
                         {renderFilePreview(field.file, field.preview)}
                         <div className="flex-1 space-y-2">
                            <p className="text-sm font-medium truncate">{field.file.name}</p>
+                           {getFileType(field.file) === 'image' && (
                            <FormField
                                 control={form.control}
                                 name={`files.${index}.altText`}
@@ -149,22 +209,26 @@ export function UploadForm() {
                                     </FormItem>
                                 )}
                             />
-                            {(field.file.type.startsWith('video/') || !field.file.type.startsWith('image/')) && (
-                                 <FormField
-                                    control={form.control}
-                                    name={`files.${index}.coverPhoto`}
-                                    render={({ field: { onChange, value, ...rest }}) => (
-                                        <FormItem className="flex-1">
-                                            <FormControl>
-                                                <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files ? e.target.files[0] : null)} {...rest} className="text-xs"/>
-                                            </FormControl>
-                                            <FormDescription className="text-xs">
-                                                {field.file.type.startsWith('video/') ? 'Upload cover or select a frame' : 'Upload a cover photo'}
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                            )}
+                            {getFileType(field.file) !== 'image' && (
+                                 <FormItem className="flex-1">
+                                    <FormControl>
+                                        <Input 
+                                          type="file" 
+                                          accept="image/*" 
+                                          onChange={(e) => {
+                                            if(e.target.files?.[0]) {
+                                                handleCoverPhotoChange(e.target.files[0], index)
+                                            }
+                                          }}
+                                          className="text-xs"
+                                        />
+                                    </FormControl>
+                                    <FormDescription className="text-xs">
+                                        {getFileType(field.file) === 'video' ? 'Upload cover photo' : 'Upload a cover photo'}
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
                             )}
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => remove(index)}>
