@@ -154,7 +154,7 @@ export default function ProfilePage() {
 
         switch (upload.type) {
             case 'video':
-                 return (
+                return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
                         {previewSrc ?
                             <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
@@ -167,6 +167,7 @@ export default function ProfilePage() {
                     </div>
                 );
             case 'article':
+            case 'document':
                 return (
                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
                         {firstFile.coverPhoto?.preview ? 
@@ -224,6 +225,14 @@ export default function ProfilePage() {
         switch (upload.type) {
             case 'video':
                 return <p>Video player placeholder for {upload.title}</p>;
+            case 'document':
+                 return (
+                    <div className="prose dark:prose-invert">
+                        <h2>{upload.title}</h2>
+                        <p>This is where the document content for '{upload.title}' would be displayed in PDF format.</p>
+                        <p>{upload.description}</p>
+                    </div>
+                );
             case 'article':
                 return (
                     <div className="prose dark:prose-invert">

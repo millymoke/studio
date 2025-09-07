@@ -118,9 +118,9 @@ export function UploadForm() {
                     preview: file.preview,
                 };
                 if (file.coverPhoto) {
-                    const coverPreview = await readFileAsDataURL(file.coverPhoto);
+                    const coverPreview = await readFileAsDataURL(file.coverPhoto.file);
                     fileData.coverPhoto = {
-                        file: {name: file.coverPhoto.name, type: file.coverPhoto.type},
+                        file: {name: file.coverPhoto.file.name, type: file.coverPhoto.file.type},
                         preview: coverPreview
                     };
                 }
@@ -146,9 +146,9 @@ export function UploadForm() {
                     preview: f.preview,
                 };
                 if (f.coverPhoto) {
-                    const coverPreview = await readFileAsDataURL(f.coverPhoto);
+                    const coverPreview = await readFileAsDataURL(f.coverPhoto.file);
                     fileData.coverPhoto = {
-                        file: {name: f.coverPhoto.name, type: f.coverPhoto.type},
+                        file: {name: f.coverPhoto.file.name, type: f.coverPhoto.file.type},
                         preview: coverPreview
                     };
                 }
@@ -226,7 +226,7 @@ export function UploadForm() {
               {fields.map((field, index) => (
                   <Card key={field.id}>
                     <CardContent className="pt-4 flex items-start gap-4">
-                        {renderFilePreview(field.file, field.preview)}
+                        {renderFilePreview(field.file, field.coverPhoto?.preview || field.preview)}
                         <div className="flex-1 space-y-2">
                            <p className="text-sm font-medium truncate">{field.file.name}</p>
                            {getFileType(field.file) === 'image' && (
@@ -254,11 +254,11 @@ export function UploadForm() {
                                                 handleCoverPhotoChange(e.target.files[0], index)
                                             }
                                           }}
-                                          className="text-xs"
+                                          className="text-xs file:text-xs file:py-1 file:px-2"
                                         />
                                     </FormControl>
                                     <FormDescription className="text-xs">
-                                        {getFileType(field.file) === 'video' ? 'Upload cover photo' : 'Upload a cover photo'}
+                                        Upload a cover photo
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
