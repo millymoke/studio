@@ -63,8 +63,6 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
-    const [textContent, setTextContent] = useState<string | null>(null);
-    const [isLoadingTextContent, setIsLoadingTextContent] = useState(false);
 
     useEffect(() => {
         setIsClient(true);
@@ -163,30 +161,6 @@ export default function ProfilePage() {
         setEditingUpload(null);
     };
 
-    const handleOpenEnlargedView = (upload: Upload) => {
-        setViewingUpload(upload);
-        if (upload.type === 'article') {
-            setIsLoadingTextContent(true);
-            const contentUri = upload.files[0]?.preview;
-            if (contentUri && contentUri.startsWith('data:')) {
-                 fetch(contentUri)
-                    .then(res => res.text())
-                    .then(text => {
-                        setTextContent(text);
-                        setIsLoadingTextContent(false);
-                    })
-                    .catch(() => {
-                        setTextContent("Could not load content.");
-                        setIsLoadingTextContent(false);
-                    });
-            } else {
-                 setTextContent(upload.description); // Fallback
-                 setIsLoadingTextContent(false);
-            }
-        }
-    }
-
-
     const renderUploadContent = (upload: Upload) => {
         const firstFile = upload.files[0];
         const previewSrc = firstFile?.coverPhoto?.preview || firstFile?.preview;
@@ -234,7 +208,7 @@ export default function ProfilePage() {
         }
     }
 
-    const renderEnlargedContent = (upload: Upload) => {
+    const EnlargedContentView = ({ upload }: { upload: Upload }) => {
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
                 <Carousel className="w-full max-w-xl mx-auto" opts={{ loop: true }}>
@@ -257,21 +231,21 @@ export default function ProfilePage() {
                 </Carousel>
             );
         }
-
+    
         const firstFile = upload.files[0];
         const previewSrc = firstFile?.preview || "https://picsum.photos/800/1000";
-
+    
         switch (upload.type) {
             case 'video':
-                 return (
+                return (
                     <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
-                       {previewSrc && (
-                           <video
-                               src={previewSrc}
-                               controls
-                               className="w-full h-full object-contain"
-                           />
-                       )}
+                        {previewSrc && (
+                            <video
+                                src={previewSrc}
+                                controls
+                                className="w-full h-full object-contain"
+                            />
+                        )}
                     </div>
                 );
             case 'article':
@@ -319,14 +293,9 @@ export default function ProfilePage() {
                 const isLastElement = posts.length === index + 1 && isMyUploads;
                 return (
                     <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
-                        <Dialog onOpenChange={(open) => {
-                            if (!open) {
-                                setViewingUpload(null);
-                                setTextContent(null);
-                            }
-                        }}>
+                        <Dialog onOpenChange={(open) => !open && setViewingUpload(null)}>
                             <DialogTrigger asChild>
-                                <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => handleOpenEnlargedView(upload)}>
+                                <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => setViewingUpload(upload)}>
                                     {renderUploadContent(upload)}
                                 </div>
                             </DialogTrigger>
@@ -336,7 +305,7 @@ export default function ProfilePage() {
                                         <DialogTitle>{viewingUpload.title}</DialogTitle>
                                      </DialogHeader>
                                      <div className="flex items-center justify-center">
-                                        {renderEnlargedContent(viewingUpload)}
+                                        <EnlargedContentView upload={viewingUpload} />
                                      </div>
                                 </DialogContent>
                             )}
@@ -484,3 +453,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
