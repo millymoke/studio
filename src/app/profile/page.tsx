@@ -17,7 +17,7 @@ import { EditPostForm } from '@/components/edit-post-form';
 import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
@@ -267,6 +267,7 @@ export default function ProfilePage() {
                             <p>{upload.description}</p>
                             {/* In a real app, you would render the full article content here */}
                         </div>
+                         <ScrollBar />
                     </ScrollArea>
                 );
             case 'image':
@@ -331,14 +332,15 @@ export default function ProfilePage() {
                                                     </div>
                                                 </DialogTrigger>
                                                 {viewingUpload && viewingUpload.id === upload.id && (
-                                                    <DialogContent className="max-w-4xl">
-                                                        <DialogHeader>
+                                                    <DialogContent className="max-w-4xl p-0">
+                                                        <DialogHeader className="p-6 pb-0">
                                                           <DialogTitle>{viewingUpload.title}</DialogTitle>
                                                         </DialogHeader>
-                                                        <ScrollArea className="max-h-[80vh] pr-6 -mr-6">
-                                                          <div className="my-4">
+                                                        <ScrollArea className="max-h-[80vh] overflow-y-auto">
+                                                          <div className="p-6">
                                                             {renderEnlargedContent(viewingUpload)}
                                                           </div>
+                                                           <ScrollBar />
                                                         </ScrollArea>
                                                     </DialogContent>
                                                 )}
