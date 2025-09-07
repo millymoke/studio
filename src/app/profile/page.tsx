@@ -7,7 +7,7 @@ import Footer from '@/components/footer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2, Download } from 'lucide-react';
+import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2, Download, CheckSquare, LayoutGrid } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,6 +18,7 @@ import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
@@ -51,6 +52,7 @@ export default function ProfilePage() {
     };
 
     const [uploads, setUploads] = useState<Upload[]>([]);
+    const [savedUploads, setSavedUploads] = useState<Upload[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
@@ -60,6 +62,7 @@ export default function ProfilePage() {
     const [isClient, setIsClient] = useState(false);
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
+    const [activeTab, setActiveTab] = useState('uploads');
 
     useEffect(() => {
         setIsClient(true);
@@ -80,13 +83,13 @@ export default function ProfilePage() {
         return [];
     }, []);
 
-    const loadInitialUploads = useCallback(() => {
+    const loadInitialData = useCallback(() => {
         setIsLoading(true);
+        // Load personal uploads
         const storedUploads = loadUploadsFromStorage();
         if (storedUploads.length > 0) {
             allUploadsRef.current = storedUploads;
         } else {
-            // Generate and store mock data only if storage is empty
             const mockUploads = generateMockUploads(BATCH_SIZE);
             try {
                 localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
@@ -98,18 +101,23 @@ export default function ProfilePage() {
 
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
+        
+        // Load saved uploads (mocked for now)
+        const mockSavedUploads = generateMockUploads(BATCH_SIZE, 100);
+        setSavedUploads(mockSavedUploads);
+
         setHasMore(initialBatch.length < allUploadsRef.current.length);
         setIsLoading(false);
     }, [loadUploadsFromStorage]);
     
     useEffect(() => {
         if (isClient) {
-            loadInitialUploads();
+            loadInitialData();
         }
-    }, [isClient, loadInitialUploads]);
+    }, [isClient, loadInitialData]);
 
     const loadMoreUploads = useCallback(() => {
-        if (isLoading || !hasMore) return;
+        if (isLoading || !hasMore || activeTab !== 'uploads') return;
         setIsLoading(true);
 
         setTimeout(() => {
@@ -119,7 +127,7 @@ export default function ProfilePage() {
             setHasMore(currentLength + nextBatch.length < allUploadsRef.current.length);
             setIsLoading(false);
         }, 500);
-    }, [isLoading, hasMore, uploads.length]);
+    }, [isLoading, hasMore, uploads.length, activeTab]);
 
     const lastUploadElementRef = useCallback((node: HTMLDivElement) => {
         if (isLoading) return;
@@ -203,7 +211,7 @@ export default function ProfilePage() {
     const renderEnlargedContent = (upload: Upload) => {
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
-                <Carousel className="w-full max-w-xl">
+                <Carousel className="w-full max-w-xl mx-auto" opts={{ loop: true }}>
                     <CarouselContent>
                         {upload.files.map((file, index) => (
                             <CarouselItem key={index}>
@@ -218,8 +226,8 @@ export default function ProfilePage() {
                             </CarouselItem>
                         ))}
                     </CarouselContent>
-                    <CarouselPrevious />
-                    <CarouselNext />
+                    <CarouselPrevious className="left-0" />
+                    <CarouselNext className="right-0" />
                 </Carousel>
             );
         }
@@ -284,6 +292,99 @@ export default function ProfilePage() {
                 );
         }
     };
+
+    const renderGrid = (posts: Upload[], isMyUploads: boolean) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
+            {posts.map((upload, index) => {
+                const isLastElement = posts.length === index + 1 && isMyUploads;
+                return (
+                    <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
+                        <Dialog onOpenChange={(open) => !open && setViewingUpload(null)}>
+                            <DialogTrigger asChild>
+                                <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => setViewingUpload(upload)}>
+                                    {renderUploadContent(upload)}
+                                </div>
+                            </DialogTrigger>
+                            {viewingUpload && viewingUpload.id === upload.id && (
+                                <DialogContent className="max-w-4xl p-0">
+                                    <ScrollArea className="max-h-[85vh] overflow-y-auto">
+                                      <div className="p-8">
+                                        <DialogHeader className="p-0 pb-4 mb-4 border-b">
+                                          <DialogTitle>{viewingUpload.title}</DialogTitle>
+                                        </DialogHeader>
+                                        {renderEnlargedContent(viewingUpload)}
+                                      </div>
+                                       <ScrollBar />
+                                    </ScrollArea>
+                                </DialogContent>
+                            )}
+                        </Dialog>
+                        
+                        <div className="px-1">
+                            <p className="font-semibold text-sm truncate">{upload.title}</p>
+                            <p className="text-sm text-muted-foreground truncate">{upload.description}</p>
+                            {upload.link && (
+                            <a href={upload.link.startsWith('http') ? upload.link : `https://${upload.link}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 my-1">
+                              <LinkIcon className="w-3 h-3"/> {upload.link}
+                            </a>
+                            )}
+                            <div className="flex justify-between items-center mt-2">
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Bookmark className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Send className="w-4 h-4" />
+                                    </Button>
+                                </div>
+
+                                {isMyUploads && (
+                                     <Dialog onOpenChange={(open) => {if (!open) {setEditingUpload(null); setDeletingUploadId(null);}}}>
+                                     <DialogTrigger asChild>
+                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingUpload(upload)}>
+                                             <MoreVertical className="w-4 h-4" />
+                                         </Button>
+                                     </DialogTrigger>
+                                     {editingUpload && editingUpload.id === upload.id && (
+                                       <DialogContent>
+                                         <DialogHeader>
+                                           <DialogTitle>Edit Post</DialogTitle>
+                                         </DialogHeader>
+                                         <EditPostForm 
+                                             post={editingUpload}
+                                             onSave={handleUpdatePost} 
+                                             onDeleteRequest={() => setDeletingUploadId(editingUpload.id)}
+                                         />
+                                       </DialogContent>
+                                     )}
+                                 </Dialog>
+                                )}
+                               
+                            </div>
+                        </div>
+                    </div>
+                )
+            })}
+            {isLoading && posts.length === 0 && Array.from({length: BATCH_SIZE}).map((_, i) => (
+                <div key={`skeleton-initial-${i}`}>
+                    <Skeleton className="aspect-[4/5] w-full rounded-lg" />
+                    <div className="space-y-2 mt-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </div>
+                </div>
+            ))}
+            {isLoading && posts.length > 0 && Array.from({length: 3}).map((_, i) => (
+                 <div key={`skeleton-load-more-${i}`}>
+                    <Skeleton className="aspect-[4/5] w-full rounded-lg" />
+                    <div className="space-y-2 mt-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
     
     return (
         <div className="flex flex-col min-h-screen bg-background">
@@ -313,101 +414,32 @@ export default function ProfilePage() {
                                 <p className="text-muted-foreground">{user.email}</p>
                                 <p className="text-sm mt-3 max-w-xl mx-auto md:mx-0">{user.bio}</p>
                             </div>
-                            <Button variant="outline" size="sm" className="absolute top-4 right-4 md:relative md:top-auto md:right-auto">
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Profile
+                             <Button variant="outline" size="sm" asChild>
+                                <Link href="/account-settings">
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit Profile
+                                </Link>
                             </Button>
                         </CardHeader>
                         <CardContent>
-                            <h2 className="text-3xl font-bold mb-6 text-center md:text-left">My Uploads</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
-                                {uploads.map((upload, index) => {
-                                    const isLastElement = uploads.length === index + 1;
-                                    return (
-                                        <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
-                                            <Dialog onOpenChange={(open) => !open && setViewingUpload(null)}>
-                                                <DialogTrigger asChild>
-                                                    <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => setViewingUpload(upload)}>
-                                                        {renderUploadContent(upload)}
-                                                    </div>
-                                                </DialogTrigger>
-                                                {viewingUpload && viewingUpload.id === upload.id && (
-                                                    <DialogContent className="max-w-4xl p-0">
-                                                        <DialogHeader className="p-6 pb-0">
-                                                          <DialogTitle>{viewingUpload.title}</DialogTitle>
-                                                        </DialogHeader>
-                                                        <ScrollArea className="max-h-[80vh] overflow-y-auto">
-                                                          <div className="p-6">
-                                                            {renderEnlargedContent(viewingUpload)}
-                                                          </div>
-                                                           <ScrollBar />
-                                                        </ScrollArea>
-                                                    </DialogContent>
-                                                )}
-                                            </Dialog>
-                                            
-                                            <div className="px-1">
-                                                <p className="font-semibold text-sm truncate">{upload.title}</p>
-                                                <p className="text-sm text-muted-foreground truncate">{upload.description}</p>
-                                                {upload.link && (
-                                                <a href={upload.link.startsWith('http') ? upload.link : `https://${upload.link}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 my-1">
-                                                  <LinkIcon className="w-3 h-3"/> {upload.link}
-                                                </a>
-                                                )}
-                                                <div className="flex justify-between items-center mt-2">
-                                                    <div className="flex gap-2">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <Bookmark className="w-4 h-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <Send className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-
-                                                    <Dialog onOpenChange={(open) => {if (!open) {setEditingUpload(null); setDeletingUploadId(null);}}}>
-                                                        <DialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingUpload(upload)}>
-                                                                <MoreVertical className="w-4 h-4" />
-                                                            </Button>
-                                                        </DialogTrigger>
-                                                        {editingUpload && editingUpload.id === upload.id && (
-                                                          <DialogContent>
-                                                            <DialogHeader>
-                                                              <DialogTitle>Edit Post</DialogTitle>
-                                                            </DialogHeader>
-                                                            <EditPostForm 
-                                                                post={editingUpload}
-                                                                onSave={handleUpdatePost} 
-                                                                onDeleteRequest={() => setDeletingUploadId(editingUpload.id)}
-                                                            />
-                                                          </DialogContent>
-                                                        )}
-                                                    </Dialog>
-
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                                {isLoading && uploads.length === 0 && Array.from({length: BATCH_SIZE}).map((_, i) => (
-                                    <div key={`skeleton-initial-${i}`}>
-                                        <Skeleton className="aspect-[4/5] w-full rounded-lg" />
-                                        <div className="space-y-2 mt-2">
-                                            <Skeleton className="h-4 w-3/4" />
-                                            <Skeleton className="h-4 w-1/2" />
-                                        </div>
-                                    </div>
-                                ))}
-                                {isLoading && uploads.length > 0 && Array.from({length: 3}).map((_, i) => (
-                                     <div key={`skeleton-load-more-${i}`}>
-                                        <Skeleton className="aspect-[4/5] w-full rounded-lg" />
-                                        <div className="space-y-2 mt-2">
-                                            <Skeleton className="h-4 w-3/4" />
-                                            <Skeleton className="h-4 w-1/2" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 mb-6">
+                                    <TabsTrigger value="uploads">
+                                        <LayoutGrid className="mr-2 h-4 w-4" />
+                                        My Uploads
+                                    </TabsTrigger>
+                                    <TabsTrigger value="saved">
+                                        <CheckSquare className="mr-2 h-4 w-4" />
+                                        Saved
+                                    </TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="uploads">
+                                    {renderGrid(uploads, true)}
+                                </TabsContent>
+                                <TabsContent value="saved">
+                                    {renderGrid(savedUploads, false)}
+                                </TabsContent>
+                            </Tabs>
                         </CardContent>
                     </Card>
                 </div>
