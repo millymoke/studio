@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -6,30 +7,38 @@ import Footer from '@/components/footer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { EditPostForm } from '@/components/edit-post-form';
 
-interface Upload {
+
+export interface Upload {
   id: number;
   type: 'video' | 'article' | 'image';
   src: string;
   title: string;
   description: string;
   link: string;
+  tags: string[];
+  altText?: string;
 }
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
     const id = i + offset;
+    const type = id % 3 === 0 ? 'video' : (id % 3 === 1 ? 'article' : 'image');
     return {
       id,
-      type: id % 3 === 0 ? 'video' : (id % 3 === 1 ? 'article' : 'image'),
+      type: type,
       src: `https://picsum.photos/400/500?random=${id + 1}`,
-      title: `Shared Content ${id + 1}`,
-      description: 'A captivating piece of content I wanted to share.',
+      title: type === 'article' ? `My Awesome Article ${id + 1}` : `Shared Content ${id + 1}`,
+      description: 'A captivating piece of content I wanted to share with the world.',
       link: 'example.com',
+      tags: ['inspiration', 'design', 'art'],
+      altText: 'An example of beautiful content',
     };
   });
 };
@@ -47,16 +56,14 @@ export default function ProfilePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
+    const [editingUpload, setEditingUpload] = useState<Upload | null>(null);
 
     const loadMoreUploads = useCallback(async () => {
         if (isLoading || !hasMore) return;
         setIsLoading(true);
-        // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         const newUploads = generateMockUploads(8, uploads.length);
         setUploads(prev => [...prev, ...newUploads]);
-        // In a real app, you'd check if the API returned more items
-        // For this mock, we'll just stop after 40 items for demo purposes
         if (uploads.length >= 32) {
             setHasMore(false);
         }
@@ -77,6 +84,45 @@ export default function ProfilePage() {
         });
         if (node) observer.current.observe(node);
     }, [isLoading, hasMore, loadMoreUploads]);
+    
+    const handleUpdatePost = (updatedUpload: Upload) => {
+        setUploads(prevUploads =>
+            prevUploads.map(upload =>
+                upload.id === updatedUpload.id ? updatedUpload : upload
+            )
+        );
+        setEditingUpload(null);
+    };
+
+    const renderUploadContent = (upload: Upload) => {
+        switch (upload.type) {
+            case 'video':
+                return (
+                    <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
+                        <PlayCircle className="w-12 h-12" />
+                        <p className="font-bold mt-2">Video</p>
+                    </div>
+                );
+            case 'article':
+                return (
+                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
+                        <FileText className="w-12 h-12" />
+                        <p className="font-bold mt-2">{upload.title}</p>
+                    </div>
+                );
+            case 'image':
+            default:
+                return (
+                     <Image 
+                        src={upload.src} 
+                        alt={upload.altText || upload.title} 
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        data-ai-hint="fashion outdoor"
+                    />
+                );
+        }
+    }
     
     return (
         <div className="flex flex-col min-h-screen bg-background">
@@ -118,27 +164,12 @@ export default function ProfilePage() {
                                     const isLastElement = uploads.length === index + 1;
                                     return (
                                         <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
-                                            <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3">
-                                                <Image 
-                                                    src={upload.src} 
-                                                    alt={upload.title} 
-                                                    fill
-                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                                    data-ai-hint="fashion outdoor"
-                                                />
-                                                {upload.type === 'video' && (
-                                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                                        <p className="text-white font-bold">Video Preview</p>
-                                                    </div>
-                                                )}
-                                                {upload.type === 'article' && (
-                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                        <p className="text-white font-bold text-center p-4">{upload.title}</p>
-                                                    </div>
-                                                )}
+                                            <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted">
+                                                {renderUploadContent(upload)}
                                             </div>
                                             
                                             <div className="px-1">
+                                                <p className="font-semibold text-sm truncate">{upload.title}</p>
                                                 <p className="text-sm text-muted-foreground truncate">{upload.description}</p>
                                                 <a href={`https://${upload.link}`} className="text-xs text-primary hover:underline flex items-center gap-1 my-1">
                                                 <LinkIcon className="w-3 h-3"/> {upload.link}
@@ -152,9 +183,26 @@ export default function ProfilePage() {
                                                             <Send className="w-4 h-4" />
                                                         </Button>
                                                     </div>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                        <MoreVertical className="w-4 h-4" />
-                                                    </Button>
+
+                                                    <Dialog onOpenChange={(open) => !open && setEditingUpload(null)}>
+                                                        <DialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingUpload(upload)}>
+                                                                <MoreVertical className="w-4 h-4" />
+                                                            </Button>
+                                                        </DialogTrigger>
+                                                        {editingUpload && editingUpload.id === upload.id && (
+                                                          <DialogContent>
+                                                            <DialogHeader>
+                                                              <DialogTitle>Edit Post</DialogTitle>
+                                                            </DialogHeader>
+                                                            <EditPostForm 
+                                                                post={editingUpload}
+                                                                onSave={handleUpdatePost} 
+                                                            />
+                                                          </DialogContent>
+                                                        )}
+                                                    </Dialog>
+
                                                 </div>
                                             </div>
                                         </div>
