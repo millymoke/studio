@@ -16,6 +16,7 @@ export interface UploadedFile {
     file: SerializableFile;
     preview?: string; // for images
     altText?: string;
+    objectPosition?: string; // e.g. 'top', 'center', 'bottom'
     coverPhoto?: {
         file: SerializableFile;
         preview: string;

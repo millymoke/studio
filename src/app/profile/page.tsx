@@ -31,7 +31,8 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
       files: [{
         preview: `https://picsum.photos/400/500?random=${i + 1}`,
         altText: 'An example of beautiful content',
-        file: new File([], `file${i}.jpg`)
+        file: new File([], `file${i}.jpg`),
+        objectPosition: 'center',
       }],
       displayOption: 'individual'
     };
@@ -186,6 +187,7 @@ export default function ProfilePage() {
                         alt={firstFile?.altText || upload.title} 
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        style={{ objectPosition: firstFile?.objectPosition || 'center' }}
                         data-ai-hint="fashion outdoor"
                     />
                 );
@@ -205,6 +207,7 @@ export default function ProfilePage() {
                                     width={800}
                                     height={1000}
                                     className="w-full h-auto object-contain rounded-md"
+                                    style={{ objectPosition: file.objectPosition || 'center' }}
                                 />
                             </CarouselItem>
                         ))}
@@ -237,6 +240,7 @@ export default function ProfilePage() {
                         width={800}
                         height={1000}
                         className="w-full h-auto object-contain rounded-md"
+                        style={{ objectPosition: firstFile?.objectPosition || 'center' }}
                     />
                 );
         }
@@ -358,5 +362,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    

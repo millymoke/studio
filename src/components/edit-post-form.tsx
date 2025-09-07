@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title cannot be empty."),
@@ -25,6 +26,7 @@ const formSchema = z.object({
   altText: z.string().optional(),
   link: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   tags: z.string().optional(),
+  objectPosition: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -42,11 +44,12 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
     defaultValues: {
       title: post.title || "",
       description: post.description || "",
-      // NOTE: This only handles alt text for the FIRST image. 
+      // NOTE: This only handles alt text and positioning for the FIRST image.
       // A more robust solution would handle this per-image.
       altText: post.files[0]?.altText || "",
       link: post.link || "",
       tags: post.tags?.join(", ") || "",
+      objectPosition: post.files[0]?.objectPosition || "center",
     },
   });
 
@@ -58,9 +61,13 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
         link: values.link || "",
         tags: values.tags ? values.tags.split(",").map(tag => tag.trim()) : [],
         files: post.files.map((file, index) => {
-            // Only update alt text for the first file for simplicity
+            // Only update alt text and object position for the first file for simplicity
             if (index === 0) {
-                return {...file, altText: values.altText || ""}
+                return {
+                    ...file, 
+                    altText: values.altText || "",
+                    objectPosition: values.objectPosition || "center",
+                }
             }
             return file;
         })
@@ -107,20 +114,59 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
         />
         
         {post.type === 'image' && (
-            <FormField
-              control={form.control}
-              name="altText"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Alt Text</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Descriptive alt text for the image" {...field} />
-                  </FormControl>
-                  <FormDescription>Describe the first image for accessibility.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <>
+                <FormField
+                  control={form.control}
+                  name="altText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alt Text</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Descriptive alt text for the image" {...field} />
+                      </FormControl>
+                      <FormDescription>Describe the first image for accessibility.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                    control={form.control}
+                    name="objectPosition"
+                    render={({ field }) => (
+                        <FormItem className="space-y-3">
+                            <FormLabel>Image Position</FormLabel>
+                             <FormDescription>Choose how the image is positioned within its frame.</FormDescription>
+                            <FormControl>
+                                <RadioGroup
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    className="flex items-center space-x-4"
+                                >
+                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                            <RadioGroupItem value="top" />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">Top</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                            <RadioGroupItem value="center" />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">Center</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                        <FormControl>
+                                            <RadioGroupItem value="bottom" />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">Bottom</FormLabel>
+                                    </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </>
         )}
 
         <FormField
