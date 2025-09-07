@@ -19,6 +19,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Trash2, PlayCircle, File as FileIcon, ImagePlus } from "lucide-react";
@@ -29,7 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 
 
@@ -65,6 +71,7 @@ export function UploadForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [thumbnailSelectorOpen, setThumbnailSelectorOpen] = useState(false);
   const [videoForThumbnail, setVideoForThumbnail] = useState<{file: File, index: number} | null>(null);
+  const coverPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -263,18 +270,38 @@ export function UploadForm() {
                                       )}
                                   />
                               ) : fileType === 'video' ? (
-                                  <Button 
-                                      type="button"
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                          setVideoForThumbnail({file: field.file, index});
-                                          setThumbnailSelectorOpen(true);
+                                  <>
+                                  <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                          <Button variant="outline" size="sm">
+                                              <ImagePlus className="mr-2 h-4 w-4"/>
+                                              Set Cover Photo
+                                          </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent>
+                                          <DropdownMenuItem onSelect={() => coverPhotoInputRef.current?.click()}>
+                                              Upload Image
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onSelect={() => {
+                                              setVideoForThumbnail({file: field.file, index});
+                                              setThumbnailSelectorOpen(true);
+                                          }}>
+                                              Select Frame from Video
+                                          </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                  </DropdownMenu>
+                                  <Input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      className="hidden"
+                                      ref={coverPhotoInputRef}
+                                      onChange={(e) => {
+                                          if(e.target.files?.[0]) {
+                                              handleCoverPhotoChange(e.target.files[0], index)
+                                          }
                                       }}
-                                  >
-                                      <ImagePlus className="mr-2 h-4 w-4"/>
-                                      Select Cover Photo
-                                  </Button>
+                                  />
+                                  </>
                               ) : (
                                   <FormItem className="flex-1">
                                       <FormControl>
