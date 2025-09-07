@@ -14,7 +14,7 @@ export default function Footer() {
           <Button variant="outline" asChild>
             <Link href="/chat">
               <MessageSquare className="mr-2" />
-              Chat
+              Send us a message
             </Link>
           </Button>
         </div>
