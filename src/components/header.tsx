@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Lock, Upload, User, LogOut, Settings } from 'lucide-react';
+import { Lock, Upload, User, LogOut, Settings, Bookmark } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +71,10 @@ export default function Header() {
                       <span>Account Settings</span>
                     </Link>
                   </DropdownMenuItem>
+                   <DropdownMenuItem>
+                      <Bookmark className="mr-2 h-4 w-4" />
+                      <span>Bookmarks</span>
+                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
                     <LogOut className="mr-2 h-4 w-4" />
@@ -88,3 +92,5 @@ export default function Header() {
     </header>
   );
 }
+
+    

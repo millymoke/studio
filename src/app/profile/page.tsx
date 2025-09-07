@@ -238,8 +238,8 @@ export default function ProfilePage() {
                             </CarouselItem>
                         ))}
                     </CarouselContent>
-                    <CarouselPrevious className="left-0" />
-                    <CarouselNext className="right-0" />
+                    <CarouselPrevious className="left-4" />
+                    <CarouselNext className="right-4" />
                 </Carousel>
             );
         }
@@ -271,7 +271,7 @@ export default function ProfilePage() {
                             </a>
                         </Button>
                         <div className="w-full aspect-[8.5/11] bg-muted">
-                            {(firstFile.file.type === 'application/pdf' || firstFile.file.type === 'text/plain') && previewSrc ? (
+                           {(firstFile.file.type.includes('pdf') || firstFile.file.type.includes('text')) && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : (
                                 <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center border">
@@ -312,7 +312,7 @@ export default function ProfilePage() {
                                 </div>
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
-                                <DialogContent className="max-w-4xl">
+                                <DialogContent className="max-w-4xl p-8">
                                      <DialogHeader>
                                         <DialogTitle>{viewingUpload.title}</DialogTitle>
                                      </DialogHeader>
@@ -335,6 +335,9 @@ export default function ProfilePage() {
                                 <div className="flex gap-2">
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
                                         <Bookmark className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <CheckSquare className="w-4 h-4" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
                                         <Send className="w-4 h-4" />
@@ -467,3 +470,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
