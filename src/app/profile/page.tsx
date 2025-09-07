@@ -281,7 +281,7 @@ export default function ProfilePage() {
                         </CardHeader>
                         <CardContent>
                             <h2 className="text-3xl font-bold mb-6 text-center md:text-left">My Uploads</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                                 {uploads.map((upload, index) => {
                                     const isLastElement = uploads.length === index + 1;
                                     return (
