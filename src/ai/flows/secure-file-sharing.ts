@@ -42,16 +42,23 @@ export async function generateOneTimeLink(
   return generateOneTimeLinkFlow(input);
 }
 
-const generateOneTimeLinkPrompt = ai.definePrompt({
+const prompt = ai.definePrompt({
   name: 'generateOneTimeLinkPrompt',
   input: {schema: GenerateOneTimeLinkInputSchema},
   output: {schema: GenerateOneTimeLinkOutputSchema},
-  prompt: `You are an expert in secure file sharing and encryption. Generate a one-time, self-destructing link for the following file, ensuring maximum security and privacy. The link should expire after {{expirationMinutes}} minutes.
+  prompt: `You are a security expert. Your task is to generate a secure, one-time, self-destructing link for the provided file.
 
-File: {{fileDataUri}}
-Recipient: {{recipient}}
+File data URI is provided in the input.
 
-Provide only the one-time link in the response.  Do not include any other text. Example:  https://example.com/secure/{{unique_id}}`,
+The link should be unique and encrypted. It should expire after the specified number of minutes. The link should be associated with the recipient.
+
+Once the link is accessed once, it should become invalid.
+
+Recipient: {{{recipient}}}
+Expiration (minutes): {{{expirationMinutes}}}
+
+Generate a unique URL for this. For the purpose of this simulation, you can use a placeholder URL structure like "https://example.com/secure/..." with a unique token.
+`,
 });
 
 const generateOneTimeLinkFlow = ai.defineFlow(
@@ -60,8 +67,22 @@ const generateOneTimeLinkFlow = ai.defineFlow(
     inputSchema: GenerateOneTimeLinkInputSchema,
     outputSchema: GenerateOneTimeLinkOutputSchema,
   },
-  async input => {
-    const {output} = await generateOneTimeLinkPrompt(input);
+  async (input) => {
+    // In a real application, you would:
+    // 1. Encrypt the file content.
+    // 2. Store the encrypted file in a secure storage (e.g., a database or a secure cloud storage).
+    // 3. Generate a unique token and store it with the file details, recipient, and expiration.
+    // 4. Construct the one-time link with the unique token.
+
+    // For this prototype, we'll simulate the link generation using an AI prompt.
+    const {output} = await prompt(input);
+    
+    // Simulate a more realistic-looking secure link
+    if (output && output.oneTimeLink) {
+        const uniqueToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        output.oneTimeLink = `https://sharespa.ce/s/${uniqueToken}`;
+    }
+    
     return output!;
   }
 );

@@ -67,9 +67,8 @@ export default function ProfilePage() {
                                             <Image 
                                                 src={upload.src} 
                                                 alt={upload.title} 
-                                                layout="fill" 
-                                                objectFit="cover" 
-                                                className="transition-transform duration-300 group-hover:scale-105"
+                                                fill
+                                                className="object-cover transition-transform duration-300 group-hover:scale-105"
                                                 data-ai-hint="fashion outdoor"
                                             />
                                             {upload.type === 'video' && (
