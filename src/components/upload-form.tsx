@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function UploadForm() {
   const { toast } = useToast();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FormValues>({
@@ -95,6 +97,7 @@ export function UploadForm() {
     form.reset();
     remove();
     setIsLoading(false);
+    router.push('/profile');
   }
 
   const renderFilePreview = (file: File, previewUrl?: string) => {

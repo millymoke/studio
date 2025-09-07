@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function ArticleForm() {
   const { toast } = useToast();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
@@ -76,6 +78,7 @@ export function ArticleForm() {
     form.reset();
     setCoverPreview(null);
     setIsLoading(false);
+    router.push('/profile');
   }
 
   return (
