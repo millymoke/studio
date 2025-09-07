@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Trash2 } from "lucide-react";
-import { ScrollArea } from "./ui/scroll-area";
+import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title cannot be empty."),
@@ -210,6 +210,7 @@ export function EditPostForm({ post, onSave, onDeleteRequest }: EditPostFormProp
               <Button type="submit">Save Changes</Button>
           </div>
         </form>
+        <ScrollBar forceMount />
       </ScrollArea>
     </Form>
   );
