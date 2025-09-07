@@ -71,15 +71,19 @@ export function ArticleForm() {
     setIsLoading(true);
 
     try {
-      let coverPhotoData: UploadedFile | undefined;
+      let coverPhotoData: UploadedFile['coverPhoto'];
       if (values.coverPhoto) {
-          const preview = await readFileAsDataURL(values.coverPhoto);
+          const coverFile = values.coverPhoto as File;
+          const preview = await readFileAsDataURL(coverFile);
           coverPhotoData = {
-              file: { name: values.coverPhoto.name, type: values.coverPhoto.type },
+              file: { name: coverFile.name, type: coverFile.type },
               preview,
           };
       }
       
+      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain' });
+      const articlePreview = await readFileAsDataURL(articleFile);
+
       const newArticle: Upload = {
         id: Date.now().toString(),
         type: 'article',
@@ -90,7 +94,8 @@ export function ArticleForm() {
         displayOption: 'individual',
         files: [
             {
-                file: new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain' }),
+                file: { name: articleFile.name, type: articleFile.type },
+                preview: articlePreview,
                 coverPhoto: coverPhotoData,
             }
         ]

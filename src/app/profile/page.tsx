@@ -63,6 +63,8 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
+    const [articleContent, setArticleContent] = useState<string | null>(null);
+    const [isLoadingArticle, setIsLoadingArticle] = useState(false);
 
     useEffect(() => {
         setIsClient(true);
@@ -161,6 +163,30 @@ export default function ProfilePage() {
         setEditingUpload(null);
     };
 
+    const handleOpenEnlargedView = (upload: Upload) => {
+        setViewingUpload(upload);
+        if (upload.type === 'article') {
+            setIsLoadingArticle(true);
+            const contentUri = upload.files[0]?.preview;
+            if (contentUri && contentUri.startsWith('data:text/plain')) {
+                 fetch(contentUri)
+                    .then(res => res.text())
+                    .then(text => {
+                        setArticleContent(text);
+                        setIsLoadingArticle(false);
+                    })
+                    .catch(() => {
+                        setArticleContent("Could not load article content.");
+                        setIsLoadingArticle(false);
+                    });
+            } else {
+                 setArticleContent(upload.description); // Fallback
+                 setIsLoadingArticle(false);
+            }
+        }
+    }
+
+
     const renderUploadContent = (upload: Upload) => {
         const firstFile = upload.files[0];
         const previewSrc = firstFile?.coverPhoto?.preview || firstFile?.preview;
@@ -169,7 +195,7 @@ export default function ProfilePage() {
             case 'video':
                 return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        {previewSrc ?
+                        {previewSrc && !previewSrc.startsWith('data:video') ?
                             <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
                             <PlayCircle className="w-12 h-12" />
                         }
@@ -238,10 +264,14 @@ export default function ProfilePage() {
         switch (upload.type) {
             case 'video':
                  return (
-                    <div className="w-full aspect-video bg-black rounded-md flex flex-col items-center justify-center text-white">
-                        <PlayCircle className="w-20 h-20 mb-4" />
-                        <h3 className="text-xl font-bold">{upload.title}</h3>
-                        <p>Video player placeholder</p>
+                    <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
+                       {previewSrc && (
+                           <video
+                               src={previewSrc}
+                               controls
+                               className="w-full h-full object-contain"
+                           />
+                       )}
                     </div>
                 );
             case 'document':
@@ -269,11 +299,18 @@ export default function ProfilePage() {
                 );
             case 'article':
                 return (
-                    <ScrollArea className="h-[70vh] w-full">
+                     <ScrollArea className="h-[70vh] w-full">
                         <div className="prose dark:prose-invert max-w-none p-1">
                             <h1>{upload.title}</h1>
-                            <p>{upload.description}</p>
-                            {/* In a real app, you would render the full article content here */}
+                            {isLoadingArticle ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-3/4" />
+                                </div>
+                            ) : (
+                               <p className="whitespace-pre-wrap">{articleContent || upload.description}</p>
+                            )}
                         </div>
                          <ScrollBar />
                     </ScrollArea>
@@ -299,23 +336,25 @@ export default function ProfilePage() {
                 const isLastElement = posts.length === index + 1 && isMyUploads;
                 return (
                     <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
-                        <Dialog onOpenChange={(open) => !open && setViewingUpload(null)}>
+                        <Dialog onOpenChange={(open) => {
+                            if (!open) {
+                                setViewingUpload(null);
+                                setArticleContent(null);
+                            }
+                        }}>
                             <DialogTrigger asChild>
-                                <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => setViewingUpload(upload)}>
+                                <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => handleOpenEnlargedView(upload)}>
                                     {renderUploadContent(upload)}
                                 </div>
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
-                                <DialogContent className="max-w-4xl p-0">
-                                    <ScrollArea className="max-h-[85vh] overflow-y-auto">
-                                      <div className="p-8">
-                                        <DialogHeader className="p-0 pb-4 mb-4 border-b">
-                                          <DialogTitle>{viewingUpload.title}</DialogTitle>
-                                        </DialogHeader>
+                                <DialogContent className="max-w-4xl">
+                                     <DialogHeader>
+                                        <DialogTitle>{viewingUpload.title}</DialogTitle>
+                                     </DialogHeader>
+                                     <div className="flex items-center justify-center">
                                         {renderEnlargedContent(viewingUpload)}
-                                      </div>
-                                       <ScrollBar />
-                                    </ScrollArea>
+                                     </div>
                                 </DialogContent>
                             )}
                         </Dialog>
@@ -462,5 +501,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
