@@ -20,8 +20,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Trash2, Image as ImageIcon, File as FileIcon, PlayCircle, PlusCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, Trash2, PlayCircle, File as FileIcon } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -93,6 +93,7 @@ export function UploadForm() {
     });
 
     form.reset();
+    remove();
     setIsLoading(false);
   }
 
@@ -108,7 +109,7 @@ export function UploadForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="files"
@@ -172,7 +173,7 @@ export function UploadForm() {
           </div>
         )}
 
-        <Separator />
+        {fields.length > 0 && <Separator />}
 
         <FormField
           control={form.control}
