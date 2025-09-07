@@ -106,37 +106,70 @@ export function UploadForm() {
     setIsLoading(true);
 
     try {
-        const fileProcessingPromises = values.files.map(async (f) => {
-            const fileData: UploadedFile = {
-                file: { name: f.file.name, type: f.file.type },
-                altText: f.altText,
-                preview: f.preview,
-            };
-            if (f.coverPhoto) {
-                const coverPreview = await readFileAsDataURL(f.coverPhoto);
-                fileData.coverPhoto = {
-                    file: {name: f.coverPhoto.name, type: f.coverPhoto.type},
-                    preview: coverPreview
-                };
-            }
-            return fileData;
-        });
-
-        const processedFiles = await Promise.all(fileProcessingPromises);
-        
-        const newUpload: Upload = {
-            id: Date.now().toString(),
-            type: getFileType(values.files[0].file),
-            title: values.title,
-            description: values.description || '',
-            tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
-            link: values.link || '',
-            displayOption: values.displayOption,
-            files: processedFiles
-        };
-
         const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
-        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newUpload, ...existingUploads]));
+        const newUploads: Upload[] = [];
+
+        if (values.displayOption === 'individual') {
+            // Create a separate post for each file
+            for (const file of values.files) {
+                const fileData: UploadedFile = {
+                    file: { name: file.file.name, type: file.file.type },
+                    altText: file.altText,
+                    preview: file.preview,
+                };
+                if (file.coverPhoto) {
+                    const coverPreview = await readFileAsDataURL(file.coverPhoto);
+                    fileData.coverPhoto = {
+                        file: {name: file.coverPhoto.name, type: file.coverPhoto.type},
+                        preview: coverPreview
+                    };
+                }
+
+                const newUpload: Upload = {
+                    id: `${Date.now()}-${file.file.name}`,
+                    type: getFileType(file.file),
+                    title: values.title,
+                    description: values.description || '',
+                    tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
+                    link: values.link || '',
+                    displayOption: 'individual',
+                    files: [fileData]
+                };
+                newUploads.push(newUpload);
+            }
+        } else {
+            // Create a single post for all files (carousel)
+            const fileProcessingPromises = values.files.map(async (f) => {
+                const fileData: UploadedFile = {
+                    file: { name: f.file.name, type: f.file.type },
+                    altText: f.altText,
+                    preview: f.preview,
+                };
+                if (f.coverPhoto) {
+                    const coverPreview = await readFileAsDataURL(f.coverPhoto);
+                    fileData.coverPhoto = {
+                        file: {name: f.coverPhoto.name, type: f.coverPhoto.type},
+                        preview: coverPreview
+                    };
+                }
+                return fileData;
+            });
+            const processedFiles = await Promise.all(fileProcessingPromises);
+            
+            const newUpload: Upload = {
+                id: Date.now().toString(),
+                type: getFileType(values.files[0].file),
+                title: values.title,
+                description: values.description || '',
+                tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
+                link: values.link || '',
+                displayOption: 'carousel',
+                files: processedFiles
+            };
+            newUploads.push(newUpload);
+        }
+
+        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([...newUploads, ...existingUploads]));
 
         toast({
           title: "Files Uploaded!",
