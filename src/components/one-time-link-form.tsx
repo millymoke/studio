@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -27,7 +28,7 @@ import Image from "next/image";
 const formSchema = z.object({
   file: z.any().optional(),
   selectedUpload: z.string().optional(),
-  recipient: z.string().email({ message: "Please enter a valid recipient email." }),
+  recipient: z.string().email({ message: "Please enter a valid recipient email." }).optional().or(z.literal('')),
   expirationMinutes: z.coerce.number().min(1, "Expiration must be at least 1 minute.").max(1440, "Expiration cannot exceed 1440 minutes (24 hours)."),
 }).refine(data => data.file || data.selectedUpload, {
     message: "Please either upload a file or select an existing one.",
@@ -92,7 +93,7 @@ export function OneTimeLinkForm() {
 
       const result = await generateOneTimeLink({
         fileDataUri,
-        recipient: values.recipient,
+        recipient: values.recipient || undefined,
         expirationMinutes: values.expirationMinutes,
       });
 
@@ -223,7 +224,7 @@ export function OneTimeLinkForm() {
             name="recipient"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Recipient Email</FormLabel>
+                <FormLabel>Recipient Email (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="recipient@example.com" {...field} />
                 </FormControl>

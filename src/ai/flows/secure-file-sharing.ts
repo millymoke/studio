@@ -17,7 +17,11 @@ const GenerateOneTimeLinkInputSchema = z.object({
     .describe(
       "The file to be shared, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  recipient: z.string().describe('The intended recipient of the file.'),
+  recipient: z
+    .string()
+    .email()
+    .optional()
+    .describe('The intended recipient of the file (optional).'),
   expirationMinutes: z
     .number()
     .default(60)
@@ -50,11 +54,13 @@ const prompt = ai.definePrompt({
 
 File data URI is provided in the input.
 
-The link should be unique and encrypted. It should expire after the specified number of minutes. The link should be associated with the recipient.
+The link should be unique and encrypted. It should expire after the specified number of minutes.
+{{#if recipient}}
+The link should be associated with the recipient: {{{recipient}}}
+{{/if}}
 
 Once the link is accessed once, it should become invalid.
 
-Recipient: {{{recipient}}}
 Expiration (minutes): {{{expirationMinutes}}}
 
 Generate a unique URL for this. For the purpose of this simulation, you can use a placeholder URL structure like "https://example.com/secure/..." with a unique token.
