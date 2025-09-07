@@ -19,7 +19,7 @@ export default function UploadPage() {
               <div>
                 <CardTitle className="text-2xl">Create a Post</CardTitle>
                 <CardDescription>
-                  Share your files, articles, and ideas with the world.
+                  Share your images, documents, videos and articles.
                 </CardDescription>
               </div>
             </div>
