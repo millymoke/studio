@@ -180,11 +180,23 @@ export default function ProfilePage() {
                     </div>
                 );
             case 'article':
-            case 'document':
                 return (
                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
                         {firstFile.coverPhoto?.preview ? 
                             <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" /> 
+                            : <FileText className="w-12 h-12" />
+                        }
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
+                            <FileText className="w-12 h-12 opacity-80" />
+                            <p className="font-bold mt-2 z-10">{upload.title}</p>
+                        </div>
+                    </div>
+                );
+            case 'document':
+                 return (
+                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
+                        {firstFile.coverPhoto?.preview ?
+                            <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" />
                             : <FileText className="w-12 h-12" />
                         }
                         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
@@ -253,14 +265,14 @@ export default function ProfilePage() {
                 return (
                     <div className="w-full flex flex-col items-center gap-4">
                         <Button asChild>
-                            <a href={firstFile.preview} download={firstFile.file.name}>
+                            <a href={previewSrc} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download File
                             </a>
                         </Button>
                         <div className="w-full aspect-[8.5/11] bg-muted">
-                            {(firstFile.file.type === 'application/pdf' || firstFile.file.type === 'text/plain') && firstFile.preview ? (
-                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" />
+                            {(firstFile.file.type === 'application/pdf' || firstFile.file.type === 'text/plain') && previewSrc ? (
+                                <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : (
                                 <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center border">
                                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
@@ -392,8 +404,10 @@ export default function ProfilePage() {
                                 <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-4 mb-2">
                                     <h1 className="text-4xl font-bold">{user.username}</h1>
                                     <div className="flex items-center gap-2">
-                                        <Button variant="outline" size="sm">
-                                          <MessageCircle className="mr-2 h-4 w-4" /> Chat
+                                        <Button variant="outline" size="sm" asChild>
+                                          <Link href="/chat">
+                                            <MessageCircle className="mr-2 h-4 w-4" /> Chat
+                                          </Link>
                                         </Button>
                                         <Button variant="outline" size="sm" asChild>
                                           <Link href="/one-time-link">
@@ -453,5 +467,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
