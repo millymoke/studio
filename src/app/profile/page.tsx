@@ -16,6 +16,7 @@ import { EditPostForm } from '@/components/edit-post-form';
 import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
@@ -242,11 +243,13 @@ export default function ProfilePage() {
                 );
             case 'article':
                 return (
-                    <div className="prose dark:prose-invert max-w-none">
-                        <h1>{upload.title}</h1>
-                        <p>{upload.description}</p>
-                        {/* In a real app, you would render the full article content here */}
-                    </div>
+                    <ScrollArea className="h-[70vh] w-full">
+                        <div className="prose dark:prose-invert max-w-none p-1">
+                            <h1>{upload.title}</h1>
+                            <p>{upload.description}</p>
+                            {/* In a real app, you would render the full article content here */}
+                        </div>
+                    </ScrollArea>
                 );
             case 'image':
             default:
@@ -310,7 +313,7 @@ export default function ProfilePage() {
                                                     </div>
                                                 </DialogTrigger>
                                                 {viewingUpload && viewingUpload.id === upload.id && (
-                                                    <DialogContent className="max-w-3xl">
+                                                    <DialogContent className="max-w-3xl overflow-y-auto">
                                                         <DialogHeader>
                                                           <DialogTitle>{viewingUpload.title}</DialogTitle>
                                                         </DialogHeader>
