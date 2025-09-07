@@ -7,20 +7,21 @@ import Footer from '@/components/footer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { EditPostForm } from '@/components/edit-post-form';
-import type { Upload, UploadedFile } from '@/lib/types';
+import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
-    const id = (i + offset).toString();
+    const id = `mock-${i + offset}`;
     const type = i % 3 === 0 ? 'video' : (i % 3 === 1 ? 'article' : 'image');
     return {
       id,
@@ -30,9 +31,9 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
       link: 'example.com',
       tags: ['inspiration', 'design', 'art'],
       files: [{
-        preview: `https://picsum.photos/400/500?random=${i + 1}`,
-        altText: 'An example of beautiful content',
         file: { name: `file${i}.jpg`, type: 'image/jpeg' },
+        preview: `https://picsum.photos/800/1000?random=${i + 1}`,
+        altText: 'An example of beautiful content',
         objectPosition: 'center',
       }],
       displayOption: 'individual'
@@ -54,8 +55,10 @@ export default function ProfilePage() {
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
     const [editingUpload, setEditingUpload] = useState<Upload | null>(null);
+    const [deletingUploadId, setDeletingUploadId] = useState<string | null>(null);
     const [viewingUpload, setViewingUpload] = useState<Upload | null>(null);
     const [isClient, setIsClient] = useState(false);
+    const allUploadsRef = useRef<Upload[]>([]);
 
     useEffect(() => {
         setIsClient(true);
@@ -66,49 +69,46 @@ export default function ProfilePage() {
         const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
         if (storedUploads) {
             try {
-                // The stored data is already in the correct shape, just need to parse it.
                 return JSON.parse(storedUploads);
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
                 return [];
             }
         }
-        return [];
+        // If nothing in storage, generate and store mock data
+        const mockUploads = generateMockUploads(8);
+        try {
+            localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
+        } catch (e) {
+            console.error("Failed to save mock uploads to localStorage", e);
+        }
+        return mockUploads;
     }, []);
 
     const loadMoreUploads = useCallback(async () => {
         if (isLoading) return;
         setIsLoading(true);
         
-        // Simulate fetching more data
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        const allUploads = loadUploadsFromStorage();
-        if (uploads.length < allUploads.length) {
-            const nextUploads = allUploads.slice(uploads.length, uploads.length + 8);
+        const currentUploads = allUploadsRef.current;
+        if (uploads.length < currentUploads.length) {
+            const nextUploads = currentUploads.slice(uploads.length, uploads.length + 8);
             setUploads(prev => [...prev, ...nextUploads]);
-            setHasMore(uploads.length + nextUploads.length < allUploads.length);
+            setHasMore(uploads.length + nextUploads.length < currentUploads.length);
         } else {
             setHasMore(false);
         }
         
         setIsLoading(false);
-    }, [isLoading, uploads, loadUploadsFromStorage]);
+    }, [isLoading, uploads.length]);
     
     useEffect(() => {
         if (isClient) {
-            const allUploads = loadUploadsFromStorage();
-            if (allUploads.length > 0) {
-              const initialUploads = allUploads.slice(0, 8);
-              setUploads(initialUploads);
-              setHasMore(initialUploads.length < allUploads.length);
-            } else {
-                // If storage is empty, generate initial mock data
-                const mockUploads = generateMockUploads(8);
-                setUploads(mockUploads);
-                // We don't save mock data to localStorage to avoid confusion
-                setHasMore(true); 
-            }
+            allUploadsRef.current = loadUploadsFromStorage();
+            const initialUploads = allUploadsRef.current.slice(0, 8);
+            setUploads(initialUploads);
+            setHasMore(initialUploads.length < allUploadsRef.current.length);
         }
     }, [isClient, loadUploadsFromStorage]);
 
@@ -125,12 +125,23 @@ export default function ProfilePage() {
     }, [isLoading, hasMore, loadMoreUploads]);
     
     const handleUpdatePost = (updatedUpload: Upload) => {
-        const allUploads = loadUploadsFromStorage();
-        const updatedUploads = allUploads.map((upload: Upload) =>
+        const updatedUploads = allUploadsRef.current.map((upload: Upload) =>
             upload.id === updatedUpload.id ? updatedUpload : upload
         );
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
+        allUploadsRef.current = updatedUploads;
         setUploads(prev => prev.map(u => u.id === updatedUpload.id ? updatedUpload : u));
+        setEditingUpload(null);
+    };
+
+    const handleDeletePost = () => {
+        if (!deletingUploadId) return;
+
+        const updatedUploads = allUploadsRef.current.filter((upload: Upload) => upload.id !== deletingUploadId);
+        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
+        allUploadsRef.current = updatedUploads;
+        setUploads(prev => prev.filter(u => u.id !== deletingUploadId));
+        setDeletingUploadId(null);
         setEditingUpload(null);
     };
 
@@ -170,7 +181,7 @@ export default function ProfilePage() {
             default:
                 return (
                      <Image 
-                        src={previewSrc || "https://picsum.photos/400/500"}
+                        src={previewSrc || "https://picsum.photos/800/1000"}
                         alt={firstFile?.altText || upload.title} 
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -308,7 +319,7 @@ export default function ProfilePage() {
                                                         <DialogHeader>
                                                           <DialogTitle>{viewingUpload.title}</DialogTitle>
                                                         </DialogHeader>
-                                                        <div className="overflow-y-auto">
+                                                        <div className="flex-1 overflow-y-auto my-4">
                                                           {renderEnlargedContent(viewingUpload)}
                                                         </div>
                                                     </DialogContent>
@@ -333,7 +344,7 @@ export default function ProfilePage() {
                                                         </Button>
                                                     </div>
 
-                                                    <Dialog onOpenChange={(open) => !open && setEditingUpload(null)}>
+                                                    <Dialog onOpenChange={(open) => {if (!open) {setEditingUpload(null); setDeletingUploadId(null);}}}>
                                                         <DialogTrigger asChild>
                                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingUpload(upload)}>
                                                                 <MoreVertical className="w-4 h-4" />
@@ -347,6 +358,7 @@ export default function ProfilePage() {
                                                             <EditPostForm 
                                                                 post={editingUpload}
                                                                 onSave={handleUpdatePost} 
+                                                                onDeleteRequest={() => setDeletingUploadId(editingUpload.id)}
                                                             />
                                                           </DialogContent>
                                                         )}
@@ -357,7 +369,7 @@ export default function ProfilePage() {
                                         </div>
                                     )
                                 })}
-                                {isLoading && Array.from({length: 4}).map((_, i) => (
+                                {isLoading && Array.from({length: 3}).map((_, i) => (
                                     <div key={`skeleton-${i}`}>
                                         <Skeleton className="aspect-[4/5] w-full rounded-lg" />
                                         <div className="space-y-2 mt-2">
@@ -370,6 +382,20 @@ export default function ProfilePage() {
                         </CardContent>
                     </Card>
                 </div>
+                <AlertDialog open={!!deletingUploadId} onOpenChange={(open) => !open && setDeletingUploadId(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete your post.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeletePost} variant="destructive">Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </main>
             <Footer />
         </div>

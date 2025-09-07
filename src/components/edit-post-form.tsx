@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Trash2 } from "lucide-react";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title cannot be empty."),
@@ -34,9 +35,10 @@ type FormValues = z.infer<typeof formSchema>;
 interface EditPostFormProps {
     post: Upload;
     onSave: (updatedPost: Upload) => void;
+    onDeleteRequest: () => void;
 }
 
-export function EditPostForm({ post, onSave }: EditPostFormProps) {
+export function EditPostForm({ post, onSave, onDeleteRequest }: EditPostFormProps) {
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -198,7 +200,11 @@ export function EditPostForm({ post, onSave }: EditPostFormProps) {
           )}
         />
 
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center pt-4">
+            <Button type="button" variant="destructive" onClick={onDeleteRequest}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Post
+            </Button>
             <Button type="submit">Save Changes</Button>
         </div>
       </form>
