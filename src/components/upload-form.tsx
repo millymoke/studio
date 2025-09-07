@@ -136,14 +136,25 @@ export function UploadForm() {
 
         const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
             const originalFile = fileWithValue.file as File;
-            const fileContent = await readFileAsDataURL(originalFile);
+            
+            // For videos, the preview is handled by the cover photo if it exists.
+            // For other files, we read the content as a data URL.
+            const fileType = getFileType(originalFile);
+            let fileContent: string | undefined;
+            if (fileType !== 'video') {
+                fileContent = await readFileAsDataURL(originalFile);
+            } else {
+                // Store the original object URL for videos so it can be used if needed
+                // but the primary preview comes from the cover photo.
+                fileContent = fileWithValue.preview; 
+            }
 
             const fileData: UploadedFile = {
                 file: { name: originalFile.name, type: originalFile.type },
                 altText: fileWithValue.altText,
                 preview: fileContent,
             };
-
+            
             if (fileWithValue.coverPhoto && fileWithValue.coverPhoto.file) {
                 const coverFile = fileWithValue.coverPhoto.file as File;
                 const coverPreview = await readFileAsDataURL(coverFile);
@@ -151,6 +162,10 @@ export function UploadForm() {
                     file: {name: coverFile.name, type: coverFile.type},
                     preview: coverPreview
                 };
+                 // For videos, the main preview should be the cover photo
+                if (fileType === 'video') {
+                    fileData.preview = coverPreview;
+                }
             }
             
             return fileData;
@@ -464,5 +479,7 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    
 
     
