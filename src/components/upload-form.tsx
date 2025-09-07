@@ -81,7 +81,6 @@ export function UploadForm() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).map(file => {
-          const isImage = file.type.startsWith('image/');
           return {
               file: file,
               altText: '',
@@ -109,28 +108,25 @@ export function UploadForm() {
         const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
         const newUploads: Upload[] = [];
 
-        const processFile = async (file: any): Promise<UploadedFile> => {
-            const fileContent = await readFileAsDataURL(file.file);
+        const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
+            const originalFile = fileWithValue.file as File;
+            const fileContent = await readFileAsDataURL(originalFile);
+
             const fileData: UploadedFile = {
-                file: { name: file.file.name, type: file.file.type },
-                altText: file.altText,
-                preview: fileContent, // Store content as Data URL
+                file: { name: originalFile.name, type: originalFile.type },
+                altText: fileWithValue.altText,
+                preview: fileContent,
             };
 
-            if (file.coverPhoto) {
-                const coverPreview = await readFileAsDataURL(file.coverPhoto.file);
+            if (fileWithValue.coverPhoto && fileWithValue.coverPhoto.file) {
+                const coverFile = fileWithValue.coverPhoto.file as File;
+                const coverPreview = await readFileAsDataURL(coverFile);
                 fileData.coverPhoto = {
-                    file: {name: file.coverPhoto.file.name, type: file.coverPhoto.file.type},
+                    file: {name: coverFile.name, type: coverFile.type},
                     preview: coverPreview
                 };
             }
-             // For videos and documents, the main preview is the cover photo if it exists
-            if (getFileType(file.file) !== 'image' && fileData.coverPhoto) {
-                // We keep the original file content in `fileContent` but the visual preview is the cover
-            } else if (getFileType(file.file) !== 'image') {
-                fileData.preview = fileContent; // Store content for non-image files if no cover
-            }
-
+            
             return fileData;
         };
 
@@ -189,9 +185,15 @@ export function UploadForm() {
     }
   }
 
-  const renderFilePreview = (file: File, tempPreviewUrl?: string) => {
-    if (tempPreviewUrl && getFileType(file) === 'image') {
-      return <Image src={tempPreviewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+  const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
+    const file = field.file as File;
+    const previewUrl = field.coverPhoto?.preview || field.preview;
+    
+    if (getFileType(file) === 'image' && previewUrl) {
+      return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+    }
+    if (field.coverPhoto?.preview) {
+        return <Image src={field.coverPhoto.preview} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
     if (file.type.startsWith('video/')) {
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
@@ -223,7 +225,7 @@ export function UploadForm() {
               {fields.map((field, index) => (
                   <Card key={field.id}>
                     <CardContent className="pt-4 flex items-start gap-4">
-                        {renderFilePreview(field.file, field.coverPhoto?.preview || field.preview)}
+                        {renderFilePreview(field)}
                         <div className="flex-1 space-y-2">
                            <p className="text-sm font-medium truncate">{field.file.name}</p>
                            {getFileType(field.file) === 'image' && (
@@ -330,41 +332,44 @@ export function UploadForm() {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="displayOption"
-          render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Display Option</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="flex flex-col space-y-1"
-                >
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="individual" />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Individual Card Display
-                    </FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="carousel" />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Carousel Display
-                    </FormLabel>
-                  </FormItem>
-                </RadioGroup>
-              </FormControl>
-              <FormDescription>Choose how multiple files should be displayed in a single post.</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {fields.length > 1 && (
+            <FormField
+              control={form.control}
+              name="displayOption"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Display Option</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="individual" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Individual posts for each file
+                        </FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="carousel" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Single post with a carousel
+                        </FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormDescription>Choose how multiple files should be displayed.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+        )}
+
 
         <Button type="submit" className="w-full" disabled={isLoading || fields.length === 0}>
           {isLoading ? (
@@ -378,3 +383,5 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    

@@ -51,7 +51,7 @@ export default function ProfilePage() {
     };
 
     const [uploads, setUploads] = useState<Upload[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
     const [editingUpload, setEditingUpload] = useState<Upload | null>(null);
@@ -59,6 +59,7 @@ export default function ProfilePage() {
     const [viewingUpload, setViewingUpload] = useState<Upload | null>(null);
     const [isClient, setIsClient] = useState(false);
     const allUploadsRef = useRef<Upload[]>([]);
+    const BATCH_SIZE = 8;
 
     useEffect(() => {
         setIsClient(true);
@@ -70,51 +71,55 @@ export default function ProfilePage() {
         if (storedUploads) {
             try {
                 const parsed = JSON.parse(storedUploads);
-                // Ensure we have an array
                 return Array.isArray(parsed) ? parsed : [];
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
                 return [];
             }
         }
-        // If nothing in storage, generate and store mock data
-        const mockUploads = generateMockUploads(8);
-        try {
-            localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
-        } catch (e) {
-            console.error("Failed to save mock uploads to localStorage", e);
-        }
-        return mockUploads;
+        return [];
     }, []);
 
-    const loadMoreUploads = useCallback(async () => {
-        if (isLoading) return;
+    const loadInitialUploads = useCallback(() => {
         setIsLoading(true);
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const currentUploads = allUploadsRef.current;
-        if (uploads.length < currentUploads.length) {
-            const nextUploads = currentUploads.slice(uploads.length, 8);
-            setUploads(prev => [...prev, ...nextUploads]);
-            setHasMore(uploads.length + nextUploads.length < currentUploads.length);
+        const storedUploads = loadUploadsFromStorage();
+        if (storedUploads.length > 0) {
+            allUploadsRef.current = storedUploads;
         } else {
-            setHasMore(false);
+            // Generate and store mock data only if storage is empty
+            const mockUploads = generateMockUploads(BATCH_SIZE);
+            try {
+                localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
+                allUploadsRef.current = mockUploads;
+            } catch (e) {
+                console.error("Failed to save mock uploads to localStorage", e);
+            }
         }
-        
+
+        const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
+        setUploads(initialBatch);
+        setHasMore(initialBatch.length < allUploadsRef.current.length);
         setIsLoading(false);
-    }, [isLoading, uploads.length]);
+    }, [loadUploadsFromStorage]);
     
     useEffect(() => {
         if (isClient) {
-            const loadedUploads = loadUploadsFromStorage();
-            allUploadsRef.current = loadedUploads;
-            const initialUploads = loadedUploads.slice(0, 8);
-            setUploads(initialUploads);
-            setHasMore(initialUploads.length < loadedUploads.length);
+            loadInitialUploads();
         }
-    }, [isClient, loadUploadsFromStorage]);
+    }, [isClient, loadInitialUploads]);
 
+    const loadMoreUploads = useCallback(() => {
+        if (isLoading || !hasMore) return;
+        setIsLoading(true);
+
+        setTimeout(() => {
+            const currentLength = uploads.length;
+            const nextBatch = allUploadsRef.current.slice(currentLength, currentLength + BATCH_SIZE);
+            setUploads(prev => [...prev, ...nextBatch]);
+            setHasMore(currentLength + nextBatch.length < allUploadsRef.current.length);
+            setIsLoading(false);
+        }, 500);
+    }, [isLoading, hasMore, uploads.length]);
 
     const lastUploadElementRef = useCallback((node: HTMLDivElement) => {
         if (isLoading) return;
@@ -382,8 +387,17 @@ export default function ProfilePage() {
                                         </div>
                                     )
                                 })}
-                                {isLoading && Array.from({length: 3}).map((_, i) => (
-                                    <div key={`skeleton-${i}`}>
+                                {isLoading && uploads.length === 0 && Array.from({length: BATCH_SIZE}).map((_, i) => (
+                                    <div key={`skeleton-initial-${i}`}>
+                                        <Skeleton className="aspect-[4/5] w-full rounded-lg" />
+                                        <div className="space-y-2 mt-2">
+                                            <Skeleton className="h-4 w-3/4" />
+                                            <Skeleton className="h-4 w-1/2" />
+                                        </div>
+                                    </div>
+                                ))}
+                                {isLoading && uploads.length > 0 && Array.from({length: 3}).map((_, i) => (
+                                     <div key={`skeleton-load-more-${i}`}>
                                         <Skeleton className="aspect-[4/5] w-full rounded-lg" />
                                         <div className="space-y-2 mt-2">
                                             <Skeleton className="h-4 w-3/4" />
