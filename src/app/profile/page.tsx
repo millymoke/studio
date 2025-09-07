@@ -165,7 +165,7 @@ export default function ProfilePage() {
 
     const handleOpenEnlargedView = (upload: Upload) => {
         setViewingUpload(upload);
-        if (upload.type === 'article' || upload.type === 'document') {
+        if (upload.type === 'article') {
             setIsLoadingTextContent(true);
             const contentUri = upload.files[0]?.preview;
             if (contentUri && contentUri.startsWith('data:')) {
@@ -274,13 +274,14 @@ export default function ProfilePage() {
                        )}
                     </div>
                 );
+            case 'article':
             case 'document':
                 return (
                     <div className="w-full flex flex-col items-center gap-4">
                         <Button asChild>
                             <a href={firstFile.preview} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
-                                Download Document
+                                Download File
                             </a>
                         </Button>
                         <div className="w-full aspect-[8.5/11] bg-muted">
@@ -290,30 +291,12 @@ export default function ProfilePage() {
                                 <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center border">
                                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                                     <h3 className="text-xl font-bold">{upload.title}</h3>
-                                    <p className="text-muted-foreground">Could not display document. Preview may not be available.</p>
+                                    <p className="text-muted-foreground">Could not display file. Preview may not be available for this file type.</p>
                                     <p className="mt-4 text-sm">{upload.description}</p>
                                 </div>
                             )}
                         </div>
                     </div>
-                );
-            case 'article':
-                return (
-                     <ScrollArea className="h-[70vh] w-full">
-                        <div className="prose dark:prose-invert max-w-none p-1">
-                            <h1>{upload.title}</h1>
-                            {isLoadingTextContent ? (
-                                <div className="space-y-2">
-                                    <Skeleton className="h-4 w-full" />
-                                    <Skeleton className="h-4 w-full" />
-                                    <Skeleton className="h-4 w-3/4" />
-                                </div>
-                            ) : (
-                               <p className="whitespace-pre-wrap">{textContent || upload.description}</p>
-                            )}
-                        </div>
-                         <ScrollBar />
-                    </ScrollArea>
                 );
             case 'image':
             default:
@@ -501,5 +484,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
