@@ -2,6 +2,7 @@ import { LoginForm } from '@/components/auth-forms';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   return (

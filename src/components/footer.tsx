@@ -1,5 +1,7 @@
+
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { MessageSquare } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -10,6 +12,10 @@ export default function Footer() {
         </p>
         <div className="flex items-center gap-4">
           <Button variant="outline">Support</Button>
+          <Button variant="outline">
+            <MessageSquare className="mr-2" />
+            Chat with Admin
+          </Button>
         </div>
       </div>
     </footer>

@@ -4,8 +4,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Lock, Upload, User } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Lock, Upload, User, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const user = { username: 'Maalai' };
+  const [isLoggedIn, setIsLoggedIn] = useState(true); // Default to logged in for demo
+  const user = { 
+      username: 'Maalai',
+      avatar: 'https://picsum.photos/200'
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -25,7 +28,7 @@ export default function Header() {
         <Link href="/" className="mr-auto">
           <h1 className="text-2xl font-bold font-headline text-primary">ShareSpace</h1>
         </Link>
-        <nav className="hidden md:flex items-center gap-4">
+        <nav className="hidden md:flex items-center gap-2">
           <Button variant="ghost" asChild>
             <Link href="/">Home</Link>
           </Button>
@@ -41,6 +44,7 @@ export default function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.avatar} alt={user.username} data-ai-hint="user avatar" />
                       <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </Button>
@@ -61,7 +65,9 @@ export default function Header() {
                       <span>Profile</span>
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
+                    <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
