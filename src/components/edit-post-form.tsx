@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Trash2 } from "lucide-react";
+import { ScrollArea } from "./ui/scroll-area";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title cannot be empty."),
@@ -85,129 +86,131 @@ export function EditPostForm({ post, onSave, onDeleteRequest }: EditPostFormProp
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-        
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Title</FormLabel>
-              <FormControl>
-                <Input placeholder="Post title" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea placeholder="A short description for the post..." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        {post.type === 'image' && (
-            <>
-                <FormField
-                  control={form.control}
-                  name="altText"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Alt Text</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Descriptive alt text for the image" {...field} />
-                      </FormControl>
-                      <FormDescription>Describe the first image for accessibility.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
+      <ScrollArea className="h-[60vh] pr-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Title</FormLabel>
+                <FormControl>
+                  <Input placeholder="Post title" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="A short description for the post..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          {post.type === 'image' && (
+              <>
+                  <FormField
                     control={form.control}
-                    name="objectPosition"
+                    name="altText"
                     render={({ field }) => (
-                        <FormItem className="space-y-3">
-                            <FormLabel>Image Position</FormLabel>
-                             <FormDescription>Choose how the image is positioned within its frame.</FormDescription>
-                            <FormControl>
-                                <RadioGroup
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
-                                    className="flex items-center space-x-4"
-                                >
-                                    <FormItem className="flex items-center space-x-2 space-y-0">
-                                        <FormControl>
-                                            <RadioGroupItem value="top" />
-                                        </FormControl>
-                                        <FormLabel className="font-normal">Top</FormLabel>
-                                    </FormItem>
-                                    <FormItem className="flex items-center space-x-2 space-y-0">
-                                        <FormControl>
-                                            <RadioGroupItem value="center" />
-                                        </FormControl>
-                                        <FormLabel className="font-normal">Center</FormLabel>
-                                    </FormItem>
-                                    <FormItem className="flex items-center space-x-2 space-y-0">
-                                        <FormControl>
-                                            <RadioGroupItem value="bottom" />
-                                        </FormControl>
-                                        <FormLabel className="font-normal">Bottom</FormLabel>
-                                    </FormItem>
-                                </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                      <FormItem>
+                        <FormLabel>Alt Text</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Descriptive alt text for the image" {...field} />
+                        </FormControl>
+                        <FormDescription>Describe the first image for accessibility.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                />
-            </>
-        )}
-
-        <FormField
-          control={form.control}
-          name="tags"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Tags</FormLabel>
-              <FormControl>
-                <Input placeholder="art, design, code" {...field} />
-              </FormControl>
-              <FormDescription>Comma-separated tags.</FormDescription>
-              <FormMessage />
-            </FormItem>
+                  />
+                  <FormField
+                      control={form.control}
+                      name="objectPosition"
+                      render={({ field }) => (
+                          <FormItem className="space-y-3">
+                              <FormLabel>Image Position</FormLabel>
+                              <FormDescription>Choose how the image is positioned within its frame.</FormDescription>
+                              <FormControl>
+                                  <RadioGroup
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                      className="flex items-center space-x-4"
+                                  >
+                                      <FormItem className="flex items-center space-x-2 space-y-0">
+                                          <FormControl>
+                                              <RadioGroupItem value="top" />
+                                          </FormControl>
+                                          <FormLabel className="font-normal">Top</FormLabel>
+                                      </FormItem>
+                                      <FormItem className="flex items-center space-x-2 space-y-0">
+                                          <FormControl>
+                                              <RadioGroupItem value="center" />
+                                          </FormControl>
+                                          <FormLabel className="font-normal">Center</FormLabel>
+                                      </FormItem>
+                                      <FormItem className="flex items-center space-x-2 space-y-0">
+                                          <FormControl>
+                                              <RadioGroupItem value="bottom" />
+                                          </FormControl>
+                                          <FormLabel className="font-normal">Bottom</FormLabel>
+                                      </FormItem>
+                                  </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+              </>
           )}
-        />
 
-        <FormField
-          control={form.control}
-          name="link"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Shareable Link</FormLabel>
-              <FormControl>
-                <Input placeholder="https://example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="tags"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tags</FormLabel>
+                <FormControl>
+                  <Input placeholder="art, design, code" {...field} />
+                </FormControl>
+                <FormDescription>Comma-separated tags.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className="flex justify-between items-center pt-4">
-            <Button type="button" variant="destructive" onClick={onDeleteRequest}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Post
-            </Button>
-            <Button type="submit">Save Changes</Button>
-        </div>
-      </form>
+          <FormField
+            control={form.control}
+            name="link"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Shareable Link</FormLabel>
+                <FormControl>
+                  <Input placeholder="https://example.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex justify-between items-center pt-4">
+              <Button type="button" variant="outline" onClick={onDeleteRequest}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Post
+              </Button>
+              <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
+      </ScrollArea>
     </Form>
   );
 }
