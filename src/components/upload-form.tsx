@@ -116,6 +116,7 @@ export function UploadForm() {
     }
     update(index, { ...fields[index], coverPhoto: coverFile });
     setThumbnailSelectorOpen(false);
+    setVideoForThumbnail(null);
   }
 
 
@@ -240,81 +241,90 @@ export function UploadForm() {
         {fields.length > 0 && (
           <div className="space-y-4">
               <Label>Uploaded Files</Label>
-              <Dialog open={thumbnailSelectorOpen} onOpenChange={setThumbnailSelectorOpen}>
-                {fields.map((field, index) => {
-                    const fileType = getFileType(field.file);
-                    return (
-                        <Card key={field.id}>
-                            <CardContent className="pt-4 flex items-start gap-4">
-                                {renderFilePreview(field)}
-                                <div className="flex-1 space-y-2">
-                                <p className="text-sm font-medium truncate">{field.file.name}</p>
-                                {fileType === 'image' ? (
-                                <FormField
-                                        control={form.control}
-                                        name={`files.${index}.altText`}
-                                        render={({ field }) => (
-                                            <FormItem className="flex-1">
-                                                <FormControl>
-                                                    <Input placeholder="Alt text" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                ) : fileType === 'video' ? (
-                                    <DialogTrigger asChild>
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm"
-                                            onClick={() => setVideoForThumbnail({file: field.file, index})}
-                                        >
-                                            <ImagePlus className="mr-2 h-4 w-4"/>
-                                            Select Cover Photo
-                                        </Button>
-                                    </DialogTrigger>
-                                ) : (
-                                    <FormItem className="flex-1">
-                                        <FormControl>
-                                            <Input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            onChange={(e) => {
-                                                if(e.target.files?.[0]) {
-                                                    handleCoverPhotoChange(e.target.files[0], index)
-                                                }
-                                            }}
-                                            className="text-xs file:text-xs file:py-1 file:px-2"
-                                            />
-                                        </FormControl>
-                                        <FormDescription className="text-xs">
-                                            Upload a cover photo
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                                    <Trash2 className="h-4 w-4"/>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    )
-                })}
-                {videoForThumbnail && (
-                    <DialogContent className="max-w-3xl">
-                        <DialogHeader>
-                            <DialogTitle>Select Video Cover Photo</DialogTitle>
-                        </DialogHeader>
-                        <VideoThumbnailSelector 
-                            videoFile={videoForThumbnail.file} 
-                            onFrameSelected={(dataUrl) => handleFrameSelect(dataUrl, videoForThumbnail.index)}
-                        />
-                    </DialogContent>
-                )}
-              </Dialog>
+              {fields.map((field, index) => {
+                  const fileType = getFileType(field.file);
+                  return (
+                      <Card key={field.id}>
+                          <CardContent className="pt-4 flex items-start gap-4">
+                              {renderFilePreview(field)}
+                              <div className="flex-1 space-y-2">
+                              <p className="text-sm font-medium truncate">{field.file.name}</p>
+                              {fileType === 'image' ? (
+                              <FormField
+                                      control={form.control}
+                                      name={`files.${index}.altText`}
+                                      render={({ field }) => (
+                                          <FormItem className="flex-1">
+                                              <FormControl>
+                                                  <Input placeholder="Alt text" {...field} />
+                                              </FormControl>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )}
+                                  />
+                              ) : fileType === 'video' ? (
+                                  <Button 
+                                      type="button"
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                          setVideoForThumbnail({file: field.file, index});
+                                          setThumbnailSelectorOpen(true);
+                                      }}
+                                  >
+                                      <ImagePlus className="mr-2 h-4 w-4"/>
+                                      Select Cover Photo
+                                  </Button>
+                              ) : (
+                                  <FormItem className="flex-1">
+                                      <FormControl>
+                                          <Input 
+                                          type="file" 
+                                          accept="image/*" 
+                                          onChange={(e) => {
+                                              if(e.target.files?.[0]) {
+                                                  handleCoverPhotoChange(e.target.files[0], index)
+                                              }
+                                          }}
+                                          className="text-xs file:text-xs file:py-1 file:px-2"
+                                          />
+                                      </FormControl>
+                                      <FormDescription className="text-xs">
+                                          Upload a cover photo
+                                      </FormDescription>
+                                      <FormMessage />
+                                  </FormItem>
+                              )}
+                              </div>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                  <Trash2 className="h-4 w-4"/>
+                              </Button>
+                          </CardContent>
+                      </Card>
+                  )
+              })}
           </div>
         )}
+        
+        <Dialog open={thumbnailSelectorOpen} onOpenChange={(open) => {
+            setThumbnailSelectorOpen(open);
+            if (!open) {
+                setVideoForThumbnail(null);
+            }
+        }}>
+            {videoForThumbnail && (
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Select Video Cover Photo</DialogTitle>
+                    </DialogHeader>
+                    <VideoThumbnailSelector 
+                        videoFile={videoForThumbnail.file} 
+                        onFrameSelected={(dataUrl) => handleFrameSelect(dataUrl, videoForThumbnail.index)}
+                    />
+                </DialogContent>
+            )}
+        </Dialog>
+
 
         {fields.length > 0 && <Separator />}
 
@@ -427,3 +437,5 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    
