@@ -63,8 +63,8 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
-    const [articleContent, setArticleContent] = useState<string | null>(null);
-    const [isLoadingArticle, setIsLoadingArticle] = useState(false);
+    const [textContent, setTextContent] = useState<string | null>(null);
+    const [isLoadingTextContent, setIsLoadingTextContent] = useState(false);
 
     useEffect(() => {
         setIsClient(true);
@@ -165,23 +165,23 @@ export default function ProfilePage() {
 
     const handleOpenEnlargedView = (upload: Upload) => {
         setViewingUpload(upload);
-        if (upload.type === 'article') {
-            setIsLoadingArticle(true);
+        if (upload.type === 'article' || upload.type === 'document') {
+            setIsLoadingTextContent(true);
             const contentUri = upload.files[0]?.preview;
-            if (contentUri && contentUri.startsWith('data:text/plain')) {
+            if (contentUri && contentUri.startsWith('data:')) {
                  fetch(contentUri)
                     .then(res => res.text())
                     .then(text => {
-                        setArticleContent(text);
-                        setIsLoadingArticle(false);
+                        setTextContent(text);
+                        setIsLoadingTextContent(false);
                     })
                     .catch(() => {
-                        setArticleContent("Could not load article content.");
-                        setIsLoadingArticle(false);
+                        setTextContent("Could not load content.");
+                        setIsLoadingTextContent(false);
                     });
             } else {
-                 setArticleContent(upload.description); // Fallback
-                 setIsLoadingArticle(false);
+                 setTextContent(upload.description); // Fallback
+                 setIsLoadingTextContent(false);
             }
         }
     }
@@ -284,8 +284,8 @@ export default function ProfilePage() {
                             </a>
                         </Button>
                         <div className="w-full aspect-[8.5/11] bg-muted">
-                            {firstFile.file.type === 'application/pdf' && firstFile.preview ? (
-                                <embed src={firstFile.preview} type="application/pdf" width="100%" height="100%" />
+                            {(firstFile.file.type === 'application/pdf' || firstFile.file.type === 'text/plain') && firstFile.preview ? (
+                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" />
                             ) : (
                                 <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center border">
                                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
@@ -302,14 +302,14 @@ export default function ProfilePage() {
                      <ScrollArea className="h-[70vh] w-full">
                         <div className="prose dark:prose-invert max-w-none p-1">
                             <h1>{upload.title}</h1>
-                            {isLoadingArticle ? (
+                            {isLoadingTextContent ? (
                                 <div className="space-y-2">
                                     <Skeleton className="h-4 w-full" />
                                     <Skeleton className="h-4 w-full" />
                                     <Skeleton className="h-4 w-3/4" />
                                 </div>
                             ) : (
-                               <p className="whitespace-pre-wrap">{articleContent || upload.description}</p>
+                               <p className="whitespace-pre-wrap">{textContent || upload.description}</p>
                             )}
                         </div>
                          <ScrollBar />
@@ -339,7 +339,7 @@ export default function ProfilePage() {
                         <Dialog onOpenChange={(open) => {
                             if (!open) {
                                 setViewingUpload(null);
-                                setArticleContent(null);
+                                setTextContent(null);
                             }
                         }}>
                             <DialogTrigger asChild>
@@ -501,3 +501,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
