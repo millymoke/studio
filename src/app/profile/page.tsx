@@ -7,7 +7,7 @@ import Footer from '@/components/footer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText } from 'lucide-react';
+import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { EditPostForm } from '@/components/edit-post-form';
 import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
@@ -51,6 +52,7 @@ export default function ProfilePage() {
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
     const [editingUpload, setEditingUpload] = useState<Upload | null>(null);
+    const [viewingUpload, setViewingUpload] = useState<Upload | null>(null);
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -110,10 +112,11 @@ export default function ProfilePage() {
     useEffect(() => {
         if (isClient) {
             const allUploads = loadUploadsFromStorage();
-            const initialUploads = allUploads.slice(0, 8);
-            setUploads(initialUploads);
-            setHasMore(initialUploads.length < allUploads.length);
-             if (allUploads.length === 0) {
+            if (allUploads.length > 0) {
+              const initialUploads = allUploads.slice(0, 8);
+              setUploads(initialUploads);
+              setHasMore(initialUploads.length < allUploads.length);
+            } else {
                 // If storage is empty, generate initial mock data
                 const mockUploads = generateMockUploads(8);
                 setUploads(mockUploads);
@@ -188,6 +191,56 @@ export default function ProfilePage() {
                 );
         }
     }
+
+    const renderEnlargedContent = (upload: Upload) => {
+        if (upload.displayOption === 'carousel' && upload.files.length > 1) {
+            return (
+                <Carousel className="w-full max-w-xl">
+                    <CarouselContent>
+                        {upload.files.map((file, index) => (
+                            <CarouselItem key={index}>
+                                <Image
+                                    src={file.preview || "https://picsum.photos/800/1000"}
+                                    alt={file.altText || upload.title}
+                                    width={800}
+                                    height={1000}
+                                    className="w-full h-auto object-contain rounded-md"
+                                />
+                            </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                    <CarouselPrevious />
+                    <CarouselNext />
+                </Carousel>
+            );
+        }
+
+        const firstFile = upload.files[0];
+        const previewSrc = firstFile?.preview || "https://picsum.photos/800/1000";
+
+        switch (upload.type) {
+            case 'video':
+                return <p>Video player placeholder for {upload.title}</p>;
+            case 'article':
+                return (
+                    <div className="prose dark:prose-invert">
+                        <h2>{upload.title}</h2>
+                        <p>{upload.description}</p>
+                    </div>
+                );
+            case 'image':
+            default:
+                return (
+                    <Image
+                        src={previewSrc}
+                        alt={firstFile?.altText || upload.title}
+                        width={800}
+                        height={1000}
+                        className="w-full h-auto object-contain rounded-md"
+                    />
+                );
+        }
+    };
     
     return (
         <div className="flex flex-col min-h-screen bg-background">
@@ -229,9 +282,21 @@ export default function ProfilePage() {
                                     const isLastElement = uploads.length === index + 1;
                                     return (
                                         <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
-                                            <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted">
-                                                {renderUploadContent(upload)}
-                                            </div>
+                                            <Dialog onOpenChange={(open) => !open && setViewingUpload(null)}>
+                                                <DialogTrigger asChild>
+                                                    <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => setViewingUpload(upload)}>
+                                                        {renderUploadContent(upload)}
+                                                    </div>
+                                                </DialogTrigger>
+                                                {viewingUpload && viewingUpload.id === upload.id && (
+                                                    <DialogContent className="max-w-3xl">
+                                                        <DialogHeader>
+                                                          <DialogTitle>{viewingUpload.title}</DialogTitle>
+                                                        </DialogHeader>
+                                                        {renderEnlargedContent(viewingUpload)}
+                                                    </DialogContent>
+                                                )}
+                                            </Dialog>
                                             
                                             <div className="px-1">
                                                 <p className="font-semibold text-sm truncate">{upload.title}</p>
@@ -293,3 +358,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
