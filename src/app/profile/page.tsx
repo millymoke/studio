@@ -7,7 +7,7 @@ import Footer from '@/components/footer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2 } from 'lucide-react';
+import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2, Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -69,7 +69,9 @@ export default function ProfilePage() {
         const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
         if (storedUploads) {
             try {
-                return JSON.parse(storedUploads);
+                const parsed = JSON.parse(storedUploads);
+                // Ensure we have an array
+                return Array.isArray(parsed) ? parsed : [];
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
                 return [];
@@ -93,7 +95,7 @@ export default function ProfilePage() {
         
         const currentUploads = allUploadsRef.current;
         if (uploads.length < currentUploads.length) {
-            const nextUploads = currentUploads.slice(uploads.length, uploads.length + 8);
+            const nextUploads = currentUploads.slice(uploads.length, 8);
             setUploads(prev => [...prev, ...nextUploads]);
             setHasMore(uploads.length + nextUploads.length < currentUploads.length);
         } else {
@@ -105,10 +107,11 @@ export default function ProfilePage() {
     
     useEffect(() => {
         if (isClient) {
-            allUploadsRef.current = loadUploadsFromStorage();
-            const initialUploads = allUploadsRef.current.slice(0, 8);
+            const loadedUploads = loadUploadsFromStorage();
+            allUploadsRef.current = loadedUploads;
+            const initialUploads = loadedUploads.slice(0, 8);
             setUploads(initialUploads);
-            setHasMore(initialUploads.length < allUploadsRef.current.length);
+            setHasMore(initialUploads.length < loadedUploads.length);
         }
     }, [isClient, loadUploadsFromStorage]);
 
@@ -229,18 +232,26 @@ export default function ProfilePage() {
                     </div>
                 );
             case 'document':
-                 return (
-                    <div className="w-full h-[70vh]">
-                      {firstFile.file.type === 'application/pdf' && firstFile.preview ? (
-                        <embed src={firstFile.preview} type="application/pdf" width="100%" height="100%" />
-                      ) : (
-                        <div className="w-full h-full bg-muted rounded-md flex flex-col items-center justify-center p-8 text-center border">
-                            <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                            <h3 className="text-xl font-bold">{upload.title}</h3>
-                            <p className="text-muted-foreground">Could not display document. Preview may not be available.</p>
-                            <p className="mt-4 text-sm">{upload.description}</p>
+                return (
+                    <div className="w-full flex flex-col items-center gap-4">
+                        <Button asChild>
+                            <a href={firstFile.preview} download={firstFile.file.name}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download Document
+                            </a>
+                        </Button>
+                        <div className="w-full aspect-[8.5/11] bg-muted">
+                            {firstFile.file.type === 'application/pdf' && firstFile.preview ? (
+                                <embed src={firstFile.preview} type="application/pdf" width="100%" height="100%" />
+                            ) : (
+                                <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center border">
+                                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                                    <h3 className="text-xl font-bold">{upload.title}</h3>
+                                    <p className="text-muted-foreground">Could not display document. Preview may not be available.</p>
+                                    <p className="mt-4 text-sm">{upload.description}</p>
+                                </div>
+                            )}
                         </div>
-                      )}
                     </div>
                 );
             case 'article':
@@ -303,7 +314,7 @@ export default function ProfilePage() {
                         </CardHeader>
                         <CardContent>
                             <h2 className="text-3xl font-bold mb-6 text-center md:text-left">My Uploads</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
                                 {uploads.map((upload, index) => {
                                     const isLastElement = uploads.length === index + 1;
                                     return (
@@ -315,13 +326,15 @@ export default function ProfilePage() {
                                                     </div>
                                                 </DialogTrigger>
                                                 {viewingUpload && viewingUpload.id === upload.id && (
-                                                    <DialogContent className="max-w-3xl">
+                                                    <DialogContent className="max-w-4xl">
                                                         <DialogHeader>
                                                           <DialogTitle>{viewingUpload.title}</DialogTitle>
                                                         </DialogHeader>
-                                                        <div className="flex-1 overflow-y-auto my-4">
-                                                          {renderEnlargedContent(viewingUpload)}
-                                                        </div>
+                                                        <ScrollArea className="max-h-[80vh] pr-6 -mr-6">
+                                                          <div className="my-4">
+                                                            {renderEnlargedContent(viewingUpload)}
+                                                          </div>
+                                                        </ScrollArea>
                                                     </DialogContent>
                                                 )}
                                             </Dialog>
@@ -401,3 +414,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
