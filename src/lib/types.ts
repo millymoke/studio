@@ -14,7 +14,7 @@ export interface FileWithPreview {
 // Represents a file that has been uploaded and stored
 export interface UploadedFile {
     file: SerializableFile;
-    preview?: string; // for images
+    preview?: string; // for images, or data URI for other file types
     altText?: string;
     objectPosition?: string; // e.g. 'top', 'center', 'bottom'
     coverPhoto?: {

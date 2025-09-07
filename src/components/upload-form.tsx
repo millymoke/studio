@@ -85,7 +85,7 @@ export function UploadForm() {
           return {
               file: file,
               altText: '',
-              preview: isImage ? URL.createObjectURL(file) : undefined,
+              preview: URL.createObjectURL(file), // Keep object URL for immediate preview
           }
       });
       append(newFiles);
@@ -109,22 +109,35 @@ export function UploadForm() {
         const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
         const newUploads: Upload[] = [];
 
-        if (values.displayOption === 'individual') {
-            // Create a separate post for each file
-            for (const file of values.files) {
-                const fileData: UploadedFile = {
-                    file: { name: file.file.name, type: file.file.type },
-                    altText: file.altText,
-                    preview: file.preview,
-                };
-                if (file.coverPhoto) {
-                    const coverPreview = await readFileAsDataURL(file.coverPhoto.file);
-                    fileData.coverPhoto = {
-                        file: {name: file.coverPhoto.file.name, type: file.coverPhoto.file.type},
-                        preview: coverPreview
-                    };
-                }
+        const processFile = async (file: any): Promise<UploadedFile> => {
+            const fileContent = await readFileAsDataURL(file.file);
+            const fileData: UploadedFile = {
+                file: { name: file.file.name, type: file.file.type },
+                altText: file.altText,
+                preview: fileContent, // Store content as Data URL
+            };
 
+            if (file.coverPhoto) {
+                const coverPreview = await readFileAsDataURL(file.coverPhoto.file);
+                fileData.coverPhoto = {
+                    file: {name: file.coverPhoto.file.name, type: file.coverPhoto.file.type},
+                    preview: coverPreview
+                };
+            }
+             // For videos and documents, the main preview is the cover photo if it exists
+            if (getFileType(file.file) !== 'image' && fileData.coverPhoto) {
+                // We keep the original file content in `fileContent` but the visual preview is the cover
+            } else if (getFileType(file.file) !== 'image') {
+                fileData.preview = fileContent; // Store content for non-image files if no cover
+            }
+
+            return fileData;
+        };
+
+
+        if (values.displayOption === 'individual') {
+            for (const file of values.files) {
+                const fileData = await processFile(file);
                 const newUpload: Upload = {
                     id: `${Date.now()}-${file.file.name}`,
                     type: getFileType(file.file),
@@ -138,23 +151,7 @@ export function UploadForm() {
                 newUploads.push(newUpload);
             }
         } else {
-            // Create a single post for all files (carousel)
-            const fileProcessingPromises = values.files.map(async (f) => {
-                const fileData: UploadedFile = {
-                    file: { name: f.file.name, type: f.file.type },
-                    altText: f.altText,
-                    preview: f.preview,
-                };
-                if (f.coverPhoto) {
-                    const coverPreview = await readFileAsDataURL(f.coverPhoto.file);
-                    fileData.coverPhoto = {
-                        file: {name: f.coverPhoto.file.name, type: f.coverPhoto.file.type},
-                        preview: coverPreview
-                    };
-                }
-                return fileData;
-            });
-            const processedFiles = await Promise.all(fileProcessingPromises);
+            const processedFiles = await Promise.all(values.files.map(processFile));
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
@@ -192,9 +189,9 @@ export function UploadForm() {
     }
   }
 
-  const renderFilePreview = (file: File, previewUrl?: string) => {
-    if (previewUrl) {
-      return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+  const renderFilePreview = (file: File, tempPreviewUrl?: string) => {
+    if (tempPreviewUrl && getFileType(file) === 'image') {
+      return <Image src={tempPreviewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
     if (file.type.startsWith('video/')) {
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>

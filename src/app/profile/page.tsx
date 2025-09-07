@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { EditPostForm } from '@/components/edit-post-form';
-import type { Upload } from '@/lib/types';
+import type { Upload, UploadedFile } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,7 +32,7 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
       files: [{
         preview: `https://picsum.photos/400/500?random=${i + 1}`,
         altText: 'An example of beautiful content',
-        file: new File([], `file${i}.jpg`),
+        file: { name: `file${i}.jpg`, type: 'image/jpeg' },
         objectPosition: 'center',
       }],
       displayOption: 'individual'
@@ -66,12 +66,8 @@ export default function ProfilePage() {
         const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
         if (storedUploads) {
             try {
-                const parsedUploads = JSON.parse(storedUploads);
-                // Re-hydrate File objects as they don't serialize well
-                return parsedUploads.map((upload: any) => ({
-                    ...upload,
-                    files: upload.files.map((f: any) => ({...f, file: new File([], f.file.name, {type: f.file.type})}))
-                }));
+                // The stored data is already in the correct shape, just need to parse it.
+                return JSON.parse(storedUploads);
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
                 return [];
@@ -84,27 +80,15 @@ export default function ProfilePage() {
         if (isLoading) return;
         setIsLoading(true);
         
-        // In a real app, this would be an API call.
-        // Here we simulate it with a timeout and mock data generation if local storage is empty.
+        // Simulate fetching more data
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        const existingUploads = loadUploadsFromStorage();
-        if (uploads.length === 0 && existingUploads.length === 0) {
-            // First load and nothing in storage, use mock data
-            const newUploads = generateMockUploads(8);
-            setUploads(newUploads);
-            setHasMore(newUploads.length > 0);
-        } else if (uploads.length < existingUploads.length) {
-            // Load from storage in chunks
-            const nextUploads = existingUploads.slice(uploads.length, uploads.length + 8);
+        const allUploads = loadUploadsFromStorage();
+        if (uploads.length < allUploads.length) {
+            const nextUploads = allUploads.slice(uploads.length, uploads.length + 8);
             setUploads(prev => [...prev, ...nextUploads]);
-            setHasMore(uploads.length + nextUploads.length < existingUploads.length);
-        } else if (uploads.length === 0 && existingUploads.length > 0) {
-            const initialUploads = existingUploads.slice(0, 8);
-            setUploads(initialUploads);
-            setHasMore(initialUploads.length < existingUploads.length);
-        }
-        else {
+            setHasMore(uploads.length + nextUploads.length < allUploads.length);
+        } else {
             setHasMore(false);
         }
         
@@ -122,7 +106,8 @@ export default function ProfilePage() {
                 // If storage is empty, generate initial mock data
                 const mockUploads = generateMockUploads(8);
                 setUploads(mockUploads);
-                setHasMore(true); // Assume there could be more mock data
+                // We don't save mock data to localStorage to avoid confusion
+                setHasMore(true); 
             }
         }
     }, [isClient, loadUploadsFromStorage]);
@@ -141,7 +126,7 @@ export default function ProfilePage() {
     
     const handleUpdatePost = (updatedUpload: Upload) => {
         const allUploads = loadUploadsFromStorage();
-        const updatedUploads = allUploads.map(upload =>
+        const updatedUploads = allUploads.map((upload: Upload) =>
             upload.id === updatedUpload.id ? updatedUpload : upload
         );
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
@@ -234,11 +219,17 @@ export default function ProfilePage() {
                 );
             case 'document':
                  return (
-                    <div className="w-full aspect-[4/5] bg-muted rounded-md flex flex-col items-center justify-center p-8 text-center border">
-                        <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                        <h3 className="text-xl font-bold">{upload.title}</h3>
-                        <p className="text-muted-foreground">This is where the PDF content for '{upload.title}' would be displayed.</p>
-                         <p className="mt-4 text-sm">{upload.description}</p>
+                    <div className="w-full h-[70vh]">
+                      {firstFile.file.type === 'application/pdf' && firstFile.preview ? (
+                        <embed src={firstFile.preview} type="application/pdf" width="100%" height="100%" />
+                      ) : (
+                        <div className="w-full h-full bg-muted rounded-md flex flex-col items-center justify-center p-8 text-center border">
+                            <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                            <h3 className="text-xl font-bold">{upload.title}</h3>
+                            <p className="text-muted-foreground">Could not display document. Preview may not be available.</p>
+                            <p className="mt-4 text-sm">{upload.description}</p>
+                        </div>
+                      )}
                     </div>
                 );
             case 'article':
@@ -313,11 +304,13 @@ export default function ProfilePage() {
                                                     </div>
                                                 </DialogTrigger>
                                                 {viewingUpload && viewingUpload.id === upload.id && (
-                                                    <DialogContent className="max-w-3xl overflow-y-auto">
+                                                    <DialogContent className="max-w-3xl">
                                                         <DialogHeader>
                                                           <DialogTitle>{viewingUpload.title}</DialogTitle>
                                                         </DialogHeader>
-                                                        {renderEnlargedContent(viewingUpload)}
+                                                        <div className="overflow-y-auto">
+                                                          {renderEnlargedContent(viewingUpload)}
+                                                        </div>
                                                     </DialogContent>
                                                 )}
                                             </Dialog>
@@ -382,5 +375,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
