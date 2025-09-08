@@ -182,23 +182,11 @@ export default function ProfilePage() {
                     </div>
                 );
             case 'article':
+            case 'document':
                 return (
                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
                         {firstFile.coverPhoto?.preview ? 
                             <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" /> 
-                            : <FileText className="w-12 h-12" />
-                        }
-                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
-                            <FileText className="w-12 h-12 opacity-80" />
-                            <p className="font-bold mt-2 z-10">{upload.title}</p>
-                        </div>
-                    </div>
-                );
-            case 'document':
-                 return (
-                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
-                        {firstFile.coverPhoto?.preview ?
-                            <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" />
                             : <FileText className="w-12 h-12" />
                         }
                         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
@@ -297,7 +285,7 @@ export default function ProfilePage() {
                 const coverPhotoSrc = firstFile?.coverPhoto?.preview;
     
                 return (
-                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-4 h-full">
+                    <div className="w-full flex flex-col items-center gap-4 h-full">
                         {coverPhotoSrc && (
                              <div className="w-full aspect-video relative rounded-md overflow-hidden flex-shrink-0">
                                 <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
@@ -309,7 +297,7 @@ export default function ProfilePage() {
                                 Download File
                             </a>
                         </Button>
-                        <div className={cn("w-full bg-background rounded-md border flex-grow", coverPhotoSrc ? "h-[calc(85vh-250px)]" : "h-[85vh]")}>
+                        <div className="w-full bg-background rounded-md border flex-grow overflow-hidden">
                             {isPdf && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : isText && previewSrc ? (
@@ -361,12 +349,12 @@ export default function ProfilePage() {
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
                                     "max-w-6xl w-full p-4 sm:p-8",
-                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') ? "max-w-4xl h-[90vh]" : "w-auto"
+                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') ? "h-[90vh] max-w-4xl" : "w-auto"
                                 )}>
                                      <DialogHeader>
                                         <DialogTitle>{viewingUpload.title}</DialogTitle>
                                      </DialogHeader>
-                                     <div className="h-[calc(100%-4rem)] overflow-y-auto">
+                                     <div className="flex-grow overflow-y-auto -mr-6 pr-6">
                                         <EnlargedContentView upload={viewingUpload} />
                                      </div>
                                 </DialogContent>
@@ -520,5 +508,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
