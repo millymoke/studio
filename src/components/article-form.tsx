@@ -73,9 +73,9 @@ export function ArticleForm() {
 
     try {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      const coverFile = values.coverPhoto?.[0] || values.coverPhoto;
+      const coverFile = values.coverPhoto as File | undefined;
       
-      if (coverFile && coverFile instanceof File) {
+      if (coverFile instanceof File) {
          const serializableCoverFile: SerializableFile = {
             name: coverFile.name,
             type: coverFile.type,
@@ -227,6 +227,4 @@ export function ArticleForm() {
   );
 }
     
-    
-
     

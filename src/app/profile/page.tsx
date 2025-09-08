@@ -179,8 +179,8 @@ export default function ProfilePage() {
             case 'video':
                  return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        {previewSrc ? 
-                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
+                        {firstFile.coverPhoto ? 
+                            <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" /> :
                             <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-12 h-12 text-muted-foreground" /></div>
                         }
                          <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
@@ -225,25 +225,22 @@ export default function ProfilePage() {
     
         if (!firstFile) return null;
     
-        const isTextBased = upload.type === 'article' || (upload.type === 'document' && firstFile?.file.type.startsWith('text/'));
-    
+        const isTextBased = upload.type === 'article' || (upload.type === 'document' && (firstFile.file.type.startsWith('text/') || firstFile.file.type.endsWith('json') || firstFile.file.type.endsWith('xml')));
+
         useEffect(() => {
-            if (isTextBased && firstFile.preview) {
-                const isDataUri = firstFile.preview.startsWith('data:');
-                if (isDataUri) {
-                    setIsLoadingText(true);
-                    try {
-                        const base64Content = firstFile.preview.split(',')[1];
-                        const decodedContent = atob(base64Content);
-                        // This handles UTF-8 characters correctly
-                        const utf8Content = decodeURIComponent(escape(decodedContent));
-                        setTextContent(utf8Content);
-                    } catch (e) {
-                        console.error("Failed to decode text content", e);
-                        setTextContent("Could not load content.");
-                    } finally {
-                        setIsLoadingText(false);
-                    }
+            if (isTextBased && firstFile.preview && firstFile.preview.startsWith('data:')) {
+                setIsLoadingText(true);
+                try {
+                    const base64Content = firstFile.preview.split(',')[1];
+                    const decodedContent = atob(base64Content);
+                    // This handles UTF-8 characters correctly by decoding from the raw binary string
+                    const utf8Content = decodeURIComponent(escape(decodedContent));
+                    setTextContent(utf8Content);
+                } catch (e) {
+                    console.error("Failed to decode text content", e);
+                    setTextContent("Could not load content.");
+                } finally {
+                    setIsLoadingText(false);
                 }
             } else {
                 setTextContent(null);
@@ -298,7 +295,7 @@ export default function ProfilePage() {
                 
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
-                        {coverPhotoSrc && (
+                       {coverPhotoSrc && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
                            </div>
@@ -318,7 +315,7 @@ export default function ProfilePage() {
                           
                            {isPdf && firstFile.preview ? (
                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                           ) : isTextBased && firstFile.preview ? (
+                           ) : (isTextBased && firstFile.preview) ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -528,6 +525,4 @@ export default function ProfilePage() {
     );
 }
     
-    
-
     

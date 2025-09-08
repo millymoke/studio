@@ -34,7 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 
 const fileSchema = z.object({
@@ -94,7 +94,6 @@ export function UploadForm() {
           const fileType = getFileType(file);
           let preview: string;
           if (fileType === 'document') {
-             // For documents, we need the data URL immediately for potential submission
              preview = await readFileAsDataURL(file);
           } else {
              preview = URL.createObjectURL(file);
@@ -152,11 +151,9 @@ export function UploadForm() {
                 };
             }
             
-            // For images and videos, their preview is an object URL which is not persistent.
-            // For documents, the preview is already a data URL.
-            // We pass object URLs to the profile page, which will use them for immediate display.
-            // In a real app, you'd upload the file and get a persistent URL.
-            const filePreview = fileWithValue.preview;
+            // For documents, the preview from the form is already a data URL.
+            // For images/videos, it's an object URL which is not persistent but fine for immediate navigation.
+            const filePreview = await readFileAsDataURL(originalFile);
 
             return {
                 file: serializableFile,
@@ -205,11 +202,8 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
-        // Don't revoke object URLs here; the profile page will need them.
-        // In a real app, you would handle this cleanup differently.
-
         form.reset();
-        remove(); // This removes all fields from the field array
+        remove();
         router.push('/profile');
 
     } catch (error) {
@@ -373,6 +367,7 @@ export function UploadForm() {
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Select Video Cover Photo</DialogTitle>
+                        <DialogDescription>Move the slider to find a frame and set it as the cover photo for your video.</DialogDescription>
                     </DialogHeader>
                     <VideoThumbnailSelector 
                         videoFile={videoForThumbnail.file} 
@@ -495,6 +490,4 @@ export function UploadForm() {
   );
 }
     
-    
-
     
