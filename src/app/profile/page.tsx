@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from '@/components/ui/alert-dialog';
 import { EditPostForm } from '@/components/edit-post-form';
-import type { Upload } from '@/lib/types';
+import type { Upload, UploadedFile } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -26,6 +26,7 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
     const id = `mock-${i + offset}`;
     const type = i % 3 === 0 ? 'video' : (i % 3 === 1 ? 'article' : 'image');
+    const hasCover = type === 'article' || type === 'document';
     return {
       id,
       type: type,
@@ -38,12 +39,10 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
         preview: `https://picsum.photos/800/1000?random=${i + 1}`,
         altText: 'An example of beautiful content',
         objectPosition: 'center',
-        ...( (type === 'article' || type === 'document') && { 
-            coverPhoto: {
-                file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
-                preview: `https://picsum.photos/1200/800?random=${i + 1}`
-            }
-        })
+        coverPhoto: hasCover ? {
+            file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
+            preview: `https://picsum.photos/1200/800?random=${i + 1}`
+        } : undefined
       }],
       displayOption: 'individual'
     };
@@ -180,9 +179,9 @@ export default function ProfilePage() {
             case 'video':
                  return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        {coverPhotoSrc ? 
-                            <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" /> :
-                            <Image src={previewSrc || "https://picsum.photos/800/1000"} alt={upload.title} fill className="object-cover" />
+                        {previewSrc ? 
+                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
+                            <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-12 h-12 text-muted-foreground" /></div>
                         }
                          <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
                             <PlayCircle className="w-12 h-12" />
