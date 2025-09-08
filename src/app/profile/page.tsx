@@ -221,6 +221,27 @@ export default function ProfilePage() {
     }
 
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
+        const [textContent, setTextContent] = useState<string | null>(null);
+        const [isLoadingText, setIsLoadingText] = useState(false);
+        const firstFile = upload.files[0];
+    
+        useEffect(() => {
+            if ((upload.type === 'article' || upload.type === 'document') && firstFile?.preview?.startsWith('data:text/plain')) {
+                setIsLoadingText(true);
+                fetch(firstFile.preview)
+                    .then(res => res.text())
+                    .then(text => {
+                        setTextContent(text);
+                        setIsLoadingText(false);
+                    })
+                    .catch(err => {
+                        console.error("Failed to fetch text content", err);
+                        setTextContent("Could not load content.");
+                        setIsLoadingText(false);
+                    });
+            }
+        }, [upload.type, firstFile?.preview]);
+    
         // Carousel view for multiple images
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -245,8 +266,7 @@ export default function ProfilePage() {
             );
         }
     
-        const firstFile = upload.files[0];
-        const previewSrc = firstFile?.preview; // The direct data URI or object URL
+        const previewSrc = firstFile?.preview;
     
         switch (upload.type) {
             case 'video':
@@ -264,23 +284,32 @@ export default function ProfilePage() {
                 );
             case 'article':
             case 'document':
-                 const isTextViewable = firstFile?.file?.type.startsWith('text/') || firstFile?.file?.type.includes('pdf');
+                const isPdf = firstFile?.file.type.includes('pdf');
+                const isText = firstFile?.file.type.startsWith('text/');
+    
                 return (
-                    <div className="w-full flex flex-col items-center gap-4">
+                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-4">
                         <Button asChild>
                             <a href={previewSrc} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download File
                             </a>
                         </Button>
-                        <div className="w-full aspect-[8.5/11] bg-muted rounded-md border">
-                           {isTextViewable && previewSrc ? (
+                        <div className="w-full h-[70vh] bg-background rounded-md border">
+                            {isPdf && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
+                            ) : isText && previewSrc ? (
+                                <ScrollArea className="h-full w-full">
+                                     <div className="p-6 prose prose-invert">
+                                        {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">{textContent}</pre>}
+                                    </div>
+                                    <ScrollBar />
+                                </ScrollArea>
                             ) : (
                                 <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center">
                                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                                     <h3 className="text-xl font-bold">{upload.title}</h3>
-                                    <p className="text-muted-foreground">Could not display file. Preview may not be available for this file type.</p>
+                                    <p className="text-muted-foreground">Preview not available for this file type. Please download to view.</p>
                                 </div>
                             )}
                         </div>
@@ -473,4 +502,5 @@ export default function ProfilePage() {
     );
 }
 
+    
     
