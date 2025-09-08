@@ -59,12 +59,12 @@ export function ArticleForm() {
     const file = e.target.files?.[0];
     if (file) {
       const preview = await readFileAsDataURL(file);
-       const serializableFile: SerializableFile = {
+      const serializableFile: SerializableFile = {
         name: file.name,
         type: file.type,
         size: file.size,
       };
-      const coverPhotoData = {
+      const coverPhotoData: UploadedFile['coverPhoto'] = {
           file: serializableFile,
           preview,
       };
@@ -222,5 +222,5 @@ export function ArticleForm() {
     </Form>
   );
 }
-
+    
     

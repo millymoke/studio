@@ -108,7 +108,7 @@ export function UploadForm() {
       type: file.type,
       size: file.size,
     };
-    const coverPhotoData = {
+    const coverPhotoData: UploadedFile['coverPhoto'] = {
         file: serializableFile,
         preview
     };
@@ -484,4 +484,5 @@ export function UploadForm() {
     </Form>
   );
 }
+    
     
