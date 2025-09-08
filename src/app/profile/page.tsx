@@ -184,7 +184,7 @@ export default function ProfilePage() {
                 );
             case 'article':
             case 'document':
-                return (
+                 return (
                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
                         {coverPhotoSrc ? 
                             <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" /> 
@@ -230,12 +230,12 @@ export default function ProfilePage() {
                     .then(res => res.text())
                     .then(text => {
                         setTextContent(text);
-                        setIsLoadingText(false);
+                        setIsLoading(false);
                     })
                     .catch(err => {
                         console.error("Failed to fetch text content", err);
                         setTextContent("Could not load content.");
-                        setIsLoadingText(false);
+                        setIsLoading(false);
                     });
             } else {
                 setTextContent(null);
@@ -281,7 +281,7 @@ export default function ProfilePage() {
                 );
     
             case 'article':
-            case 'document':
+            case 'document': {
                 const isPdf = firstFile?.file.type.includes('pdf');
                 const isText = firstFile?.file.type.startsWith('text/');
                 const coverPhotoSrc = firstFile?.coverPhoto?.preview;
@@ -323,7 +323,7 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 );
-    
+            }
             case 'image':
             default:
                 return (
@@ -509,5 +509,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
