@@ -11,8 +11,8 @@ import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Lo
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from '@/components/ui/alert-dialog';
 import { EditPostForm } from '@/components/edit-post-form';
 import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
@@ -38,6 +38,12 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
         preview: `https://picsum.photos/800/1000?random=${i + 1}`,
         altText: 'An example of beautiful content',
         objectPosition: 'center',
+        ...( (type === 'article' || type === 'document') && { 
+            coverPhoto: {
+                file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
+                preview: `https://picsum.photos/1200/800?random=${i + 1}`
+            }
+        })
       }],
       displayOption: 'individual'
     };
@@ -288,7 +294,7 @@ export default function ProfilePage() {
                 const isText = firstFile?.file.type.startsWith('text/');
 
                 return (
-                    <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden max-w-4xl mx-auto">
+                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden max-w-4xl mx-auto">
                        {coverPhotoSrc && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
