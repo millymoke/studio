@@ -71,7 +71,7 @@ export function ArticleForm() {
     setIsLoading(true);
 
     try {
-      let coverPhotoData: UploadedFile['coverPhoto'];
+      let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
       if (values.coverPhoto) {
           const coverFile = values.coverPhoto as File;
           const preview = await readFileAsDataURL(coverFile);
