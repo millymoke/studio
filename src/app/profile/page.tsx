@@ -227,9 +227,10 @@ export default function ProfilePage() {
     
         useEffect(() => {
             const isTextBased = (upload.type === 'article' || upload.type === 'document');
+            const isTextFile = firstFile?.file?.type.startsWith('text/');
             const hasTextPreview = firstFile?.preview?.startsWith('data:text/plain');
     
-            if (isTextBased && hasTextPreview) {
+            if (isTextBased && isTextFile && hasTextPreview) {
                 setIsLoadingText(true);
                 fetch(firstFile.preview)
                     .then(res => res.text())
@@ -245,7 +246,7 @@ export default function ProfilePage() {
             } else {
                 setTextContent(null);
             }
-        }, [upload.type, firstFile?.preview]);
+        }, [upload.type, firstFile?.file?.type, firstFile?.preview]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -310,7 +311,7 @@ export default function ProfilePage() {
                             {isPdf && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : isText && previewSrc ? (
-                                <ScrollArea className="h-full w-full">
+                                <ScrollArea className="h-full w-full bg-white text-black dark:bg-card dark:text-foreground">
                                      <div className="p-8 prose prose-neutral dark:prose-invert max-w-none">
                                         {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm">{textContent}</pre>}
                                     </div>
@@ -357,7 +358,10 @@ export default function ProfilePage() {
                                 </div>
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
-                                <DialogContent className="max-w-6xl w-auto p-8">
+                                <DialogContent className={cn(
+                                    "max-w-6xl w-auto p-8",
+                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') && "max-w-4xl"
+                                )}>
                                      <DialogHeader>
                                         <DialogTitle>{viewingUpload.title}</DialogTitle>
                                      </DialogHeader>
@@ -514,5 +518,4 @@ export default function ProfilePage() {
     );
 }
 
-    
     
