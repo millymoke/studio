@@ -27,6 +27,18 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
     const id = `mock-${i + offset}`;
     const type = i % 3 === 0 ? 'video' : (i % 3 === 1 ? 'article' : 'image');
     const hasCover = type === 'article' || type === 'document';
+    const firstFile: UploadedFile = {
+        file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
+        preview: `https://picsum.photos/800/1000?random=${i + 1}`,
+        altText: 'An example of beautiful content',
+        objectPosition: 'center',
+    };
+    if (hasCover) {
+        firstFile.coverPhoto = {
+            file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
+            preview: `https://picsum.photos/1200/800?random=${i + 101}`
+        };
+    }
     return {
       id,
       type: type,
@@ -34,16 +46,7 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
       description: 'A captivating piece of content I wanted to share with the world.',
       link: 'example.com',
       tags: ['inspiration', 'design', 'art'],
-      files: [{
-        file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
-        preview: `https://picsum.photos/800/1000?random=${i + 1}`,
-        altText: 'An example of beautiful content',
-        objectPosition: 'center',
-        coverPhoto: hasCover ? {
-            file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
-            preview: `https://picsum.photos/1200/800?random=${i + 101}`
-        } : undefined
-      }],
+      files: [firstFile],
       displayOption: 'individual'
     };
   });
@@ -92,7 +95,6 @@ export default function ProfilePage() {
 
     const loadInitialData = useCallback(() => {
         setIsLoading(true);
-        // Load personal uploads
         const storedUploads = loadUploadsFromStorage();
         if (storedUploads.length > 0) {
             allUploadsRef.current = storedUploads;
@@ -109,7 +111,6 @@ export default function ProfilePage() {
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
         
-        // Load saved uploads (mocked for now)
         const mockSavedUploads = generateMockUploads(BATCH_SIZE, 100);
         setSavedUploads(mockSavedUploads);
 
@@ -169,10 +170,9 @@ export default function ProfilePage() {
     };
     
     const renderUploadContent = (upload: Upload) => {
-        const firstFile = upload.files[0];
+        const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
-        // Use cover photo if available, otherwise use the main preview
         const previewSrc = firstFile.coverPhoto?.preview || firstFile.preview;
 
         switch (upload.type) {
@@ -221,14 +221,14 @@ export default function ProfilePage() {
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoadingText, setIsLoadingText] = useState(false);
-        const firstFile = upload.files[0];
+        const firstFile = upload.files?.[0];
     
         useEffect(() => {
             const isTextBased = upload.type === 'article' || (upload.type === 'document' && firstFile?.file.type.startsWith('text/'));
             const filePreview = firstFile?.preview;
-            const isTextDataUri = typeof filePreview === 'string' && filePreview.startsWith('data:text/');
+            const isTextDataUri = typeof filePreview === 'string' && (filePreview.startsWith('data:text/') || filePreview.startsWith('data:application/pdf') || filePreview.startsWith('data:application/octet-stream'));
             
-            if (isTextBased && isTextDataUri) {
+            if (isTextBased && filePreview && isTextDataUri) {
                 setIsLoadingText(true);
                 fetch(filePreview)
                     .then(res => res.text())
@@ -314,7 +314,7 @@ export default function ProfilePage() {
                           
                            {isPdf && firstFile.preview ? (
                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                           ) : isText ? (
+                           ) : (isTextBased && firstFile.preview) ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -523,5 +523,4 @@ export default function ProfilePage() {
         </div>
     );
 }
-
     

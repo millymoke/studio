@@ -40,7 +40,7 @@ import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
-  coverPhoto: z.any().optional(), // can be File or UploadedFile['coverPhoto']
+  coverPhoto: z.any().optional(), // UploadedFile['coverPhoto']
   preview: z.string().optional(), // object URL
 });
 
@@ -103,8 +103,13 @@ export function UploadForm() {
   
   const handleCoverPhotoChange = async (file: File, index: number) => {
     const preview = await readFileAsDataURL(file);
+    const serializableFile: SerializableFile = {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    };
     const coverPhotoData = {
-        file: { name: file.name, type: file.type, size: file.size },
+        file: serializableFile,
         preview
     };
     update(index, { ...fields[index], coverPhoto: coverPhotoData });
@@ -134,22 +139,21 @@ export function UploadForm() {
             
             const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
 
-            // The cover photo is already processed and in the correct format by handleCoverPhotoChange
             const coverPhotoData = fileWithValue.coverPhoto as UploadedFile['coverPhoto'] | undefined;
             
             let filePreview: string | undefined = fileWithValue.preview;
+            // For documents, we must read them as data URIs to store them.
+            // For images and videos, we can use the object URL for display and don't need to store the full data.
             if (getFileType(originalFile) === 'document') {
                 filePreview = await readFileAsDataURL(originalFile);
             }
             
-            const fileData: UploadedFile = {
+            return {
                 file: serializableFile,
                 altText: fileWithValue.altText,
                 preview: filePreview,
                 coverPhoto: coverPhotoData,
             };
-            
-            return fileData;
         };
 
 
@@ -480,5 +484,4 @@ export function UploadForm() {
     </Form>
   );
 }
-
     

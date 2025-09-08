@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile } from "@/lib/types";
+import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 
 
@@ -59,8 +59,13 @@ export function ArticleForm() {
     const file = e.target.files?.[0];
     if (file) {
       const preview = await readFileAsDataURL(file);
+       const serializableFile: SerializableFile = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      };
       const coverPhotoData = {
-          file: { name: file.name, type: file.type, size: file.size },
+          file: serializableFile,
           preview,
       };
       form.setValue('coverPhoto', coverPhotoData);
@@ -76,11 +81,16 @@ export function ArticleForm() {
     setIsLoading(true);
 
     try {
-      // The cover photo is already processed into the correct format by handleCoverPhotoChange
       const coverPhotoData = values.coverPhoto as UploadedFile['coverPhoto'] | undefined;
       
-      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
+      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-t' });
       const articlePreview = await readFileAsDataURL(articleFile);
+
+      const serializableArticleFile: SerializableFile = {
+        name: articleFile.name,
+        type: articleFile.type,
+        size: articleFile.size,
+      }
 
       const newArticle: Upload = {
         id: Date.now().toString(),
@@ -92,7 +102,7 @@ export function ArticleForm() {
         displayOption: 'individual',
         files: [
             {
-                file: { name: articleFile.name, type: articleFile.type, size: articleFile.size },
+                file: serializableArticleFile,
                 preview: articlePreview,
                 coverPhoto: coverPhotoData,
             }
