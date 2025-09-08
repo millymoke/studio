@@ -72,8 +72,9 @@ export function ArticleForm() {
 
     try {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      if (values.coverPhoto) {
-          const coverFile = values.coverPhoto as File;
+      // Ensure we only process the cover photo if it's a File object
+      if (values.coverPhoto instanceof File) {
+          const coverFile = values.coverPhoto;
           const preview = await readFileAsDataURL(coverFile);
           coverPhotoData = {
               file: { name: coverFile.name, type: coverFile.type },
