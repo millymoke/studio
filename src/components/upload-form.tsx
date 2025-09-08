@@ -138,6 +138,8 @@ export function UploadForm() {
                 };
             }
             
+            // For documents, we must generate a data URL to render the content later.
+            // For other file types, the object URL (`fileWithValue.preview`) is sufficient.
             if (getFileType(originalFile) === 'document') {
                 filePreview = await readFileAsDataURL(originalFile);
             }

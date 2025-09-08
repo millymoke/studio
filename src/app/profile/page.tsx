@@ -11,7 +11,7 @@ import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Lo
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { EditPostForm } from '@/components/edit-post-form';
 import type { Upload } from '@/lib/types';
@@ -291,7 +291,7 @@ export default function ProfilePage() {
                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden max-w-4xl mx-auto">
                        {coverPhotoSrc && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
-                               <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
+                               <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
                            </div>
                        )}
                        <div className="flex-grow w-full border-t overflow-hidden flex flex-col">
@@ -364,6 +364,7 @@ export default function ProfilePage() {
                                 )}>
                                     <DialogHeader className="sr-only">
                                       <DialogTitle>{viewingUpload.title}</DialogTitle>
+                                      <DialogDescription>Enlarged view of {viewingUpload.title}</DialogDescription>
                                     </DialogHeader>
                                     <EnlargedContentView upload={viewingUpload} />
                                 </DialogContent>
