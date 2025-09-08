@@ -221,47 +221,50 @@ export default function ProfilePage() {
     }
 
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
+        // Carousel view for multiple images
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
-                <Carousel className="w-full max-w-xl mx-auto" opts={{ loop: true }}>
+                <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
                     <CarouselContent>
                         {upload.files.map((file, index) => (
-                            <CarouselItem key={index}>
+                            <CarouselItem key={index} className="flex items-center justify-center">
                                 <Image
                                     src={file.preview || "https://picsum.photos/800/1000"}
                                     alt={file.altText || upload.title}
                                     width={800}
                                     height={1000}
-                                    className="w-full h-auto object-contain rounded-md"
+                                    className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
                                     style={{ objectPosition: file.objectPosition || 'center' }}
                                 />
                             </CarouselItem>
                         ))}
                     </CarouselContent>
-                    <CarouselPrevious className="left-4" />
-                    <CarouselNext className="right-4" />
+                    <CarouselPrevious className="-left-12" />
+                    <CarouselNext className="-right-12" />
                 </Carousel>
             );
         }
     
         const firstFile = upload.files[0];
-        const previewSrc = firstFile?.preview || "https://picsum.photos/800/1000";
+        const previewSrc = firstFile?.preview; // The direct data URI or object URL
     
         switch (upload.type) {
             case 'video':
                 return (
                     <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
-                        {previewSrc && (
+                        {previewSrc ? (
                             <video
                                 src={previewSrc}
                                 controls
+                                autoPlay
                                 className="w-full h-full object-contain"
                             />
-                        )}
+                        ) : <p className="text-white">Could not load video.</p>}
                     </div>
                 );
             case 'article':
             case 'document':
+                 const isTextViewable = firstFile?.file?.type.startsWith('text/') || firstFile?.file?.type.includes('pdf');
                 return (
                     <div className="w-full flex flex-col items-center gap-4">
                         <Button asChild>
@@ -270,15 +273,14 @@ export default function ProfilePage() {
                                 Download File
                             </a>
                         </Button>
-                        <div className="w-full aspect-[8.5/11] bg-muted">
-                           {(firstFile.file.type.includes('pdf') || firstFile.file.type.includes('text')) && previewSrc ? (
+                        <div className="w-full aspect-[8.5/11] bg-muted rounded-md border">
+                           {isTextViewable && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : (
-                                <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center border">
+                                <div className="w-full h-full rounded-md flex flex-col items-center justify-center p-8 text-center">
                                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                                     <h3 className="text-xl font-bold">{upload.title}</h3>
                                     <p className="text-muted-foreground">Could not display file. Preview may not be available for this file type.</p>
-                                    <p className="mt-4 text-sm">{upload.description}</p>
                                 </div>
                             )}
                         </div>
@@ -287,14 +289,16 @@ export default function ProfilePage() {
             case 'image':
             default:
                 return (
-                    <Image
-                        src={previewSrc}
-                        alt={firstFile?.altText || upload.title}
-                        width={800}
-                        height={1000}
-                        className="w-full h-auto object-contain rounded-md"
-                        style={{ objectPosition: firstFile?.objectPosition || 'center' }}
-                    />
+                    <div className="flex items-center justify-center">
+                        <Image
+                            src={previewSrc || "https://picsum.photos/800/1000"}
+                            alt={firstFile?.altText || upload.title}
+                            width={800}
+                            height={1000}
+                            className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
+                            style={{ objectPosition: firstFile?.objectPosition || 'center' }}
+                        />
+                    </div>
                 );
         }
     };
@@ -312,13 +316,11 @@ export default function ProfilePage() {
                                 </div>
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
-                                <DialogContent className="max-w-4xl p-8">
+                                <DialogContent className="max-w-6xl w-auto p-8">
                                      <DialogHeader>
                                         <DialogTitle>{viewingUpload.title}</DialogTitle>
                                      </DialogHeader>
-                                     <div className="flex items-center justify-center">
-                                        <EnlargedContentView upload={viewingUpload} />
-                                     </div>
+                                     <EnlargedContentView upload={viewingUpload} />
                                 </DialogContent>
                             )}
                         </Dialog>
@@ -470,3 +472,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
