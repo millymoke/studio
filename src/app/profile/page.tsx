@@ -95,21 +95,19 @@ export default function ProfilePage() {
 
     const loadInitialData = useCallback(() => {
         setIsLoading(true);
-        const storedUploads = loadUploadsFromStorage();
+        let storedUploads = loadUploadsFromStorage();
         
-        // Only generate mocks if storage is empty
-        if (storedUploads.length > 0) {
-            allUploadsRef.current = storedUploads;
-        } else {
-            const mockUploads = generateMockUploads(BATCH_SIZE * 2); // Generate more mocks to demonstrate scrolling
+        if (storedUploads.length === 0) {
+            const mockUploads = generateMockUploads(BATCH_SIZE * 2);
             try {
                 localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
-                allUploadsRef.current = mockUploads;
+                storedUploads = mockUploads;
             } catch (e) {
                 console.error("Failed to save mock uploads to localStorage", e);
             }
         }
-
+        
+        allUploadsRef.current = storedUploads;
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
         
@@ -532,3 +530,4 @@ export default function ProfilePage() {
     
 
     
+
