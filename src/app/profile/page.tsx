@@ -162,18 +162,20 @@ export default function ProfilePage() {
         setDeletingUploadId(null);
         setEditingUpload(null);
     };
-
+    
     const renderUploadContent = (upload: Upload) => {
         const firstFile = upload.files[0];
-        const previewSrc = firstFile?.preview;
-        const coverPhotoSrc = firstFile?.coverPhoto?.preview;
-    
+        if (!firstFile) return null;
+
+        const coverPhotoSrc = firstFile.coverPhoto?.preview;
+        const previewSrc = firstFile.preview;
+
         switch (upload.type) {
             case 'video':
                 return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        {coverPhotoSrc ? 
-                            <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" /> :
+                        {previewSrc ? 
+                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
                             <PlayCircle className="w-12 h-12" />
                         }
                          <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
@@ -185,10 +187,10 @@ export default function ProfilePage() {
             case 'article':
             case 'document':
                  return (
-                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
+                     <div className="absolute inset-0 bg-card">
                         {coverPhotoSrc ? 
                             <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" /> 
-                            : <FileText className="w-12 h-12" />
+                            : <div className="w-full h-full bg-muted flex items-center justify-center"><FileText className="w-12 h-12 text-muted-foreground" /></div>
                         }
                         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
                             <FileText className="w-12 h-12 opacity-80" />
@@ -211,36 +213,33 @@ export default function ProfilePage() {
         }
     }
     
-
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoadingText, setIsLoadingText] = useState(false);
         
         const firstFile = upload.files[0];
-        const previewSrc = firstFile?.preview;
     
         useEffect(() => {
-            const isTextBased = (upload.type === 'article' || upload.type === 'document');
-            const isTextFile = firstFile?.file?.type.startsWith('text/');
-            const hasTextPreview = firstFile?.preview?.startsWith('data:text/plain');
-    
-            if (isTextBased && isTextFile && hasTextPreview) {
+            const isTextBased = upload.type === 'article' || upload.type === 'document';
+            const isTextDataUri = firstFile?.preview?.startsWith('data:text/plain');
+            
+            if (isTextBased && isTextDataUri) {
                 setIsLoadingText(true);
                 fetch(firstFile.preview)
                     .then(res => res.text())
                     .then(text => {
                         setTextContent(text);
-                        setIsLoading(false);
+                        setIsLoadingText(false);
                     })
                     .catch(err => {
                         console.error("Failed to fetch text content", err);
                         setTextContent("Could not load content.");
-                        setIsLoading(false);
+                        setIsLoadingText(false);
                     });
             } else {
                 setTextContent(null);
             }
-        }, [upload.type, firstFile?.file?.type, firstFile?.preview]);
+        }, [upload.type, firstFile?.preview]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -269,9 +268,9 @@ export default function ProfilePage() {
             case 'video':
                 return (
                     <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
-                        {previewSrc ? (
+                        {firstFile?.preview ? (
                             <video
-                                src={previewSrc}
+                                src={firstFile.preview}
                                 controls
                                 autoPlay
                                 className="w-full h-full object-contain"
@@ -285,15 +284,16 @@ export default function ProfilePage() {
                 const isPdf = firstFile?.file.type.includes('pdf');
                 const isText = firstFile?.file.type.startsWith('text/');
                 const coverPhotoSrc = firstFile?.coverPhoto?.preview;
+                const previewSrc = firstFile?.preview;
     
                 return (
-                     <div className="flex flex-col h-full w-full">
+                     <div className="flex flex-col h-full w-full bg-background rounded-md">
                         {coverPhotoSrc && (
                              <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0">
                                 <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
                             </div>
                         )}
-                        <div className="flex-grow w-full bg-background rounded-b-md border overflow-hidden flex flex-col">
+                        <div className="flex-grow w-full border-t overflow-hidden flex flex-col">
                             <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
                                 <h3 className="font-bold truncate">{upload.title}</h3>
                                 <Button asChild variant="outline" size="sm">
@@ -307,7 +307,7 @@ export default function ProfilePage() {
                             {isPdf && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                             ) : isText && previewSrc ? (
-                                <ScrollArea className="h-full w-full bg-white text-black dark:bg-card dark:text-foreground flex-grow rounded-b-md">
+                                <ScrollArea className="h-full w-full flex-grow">
                                      <div className="p-8 prose prose-neutral dark:prose-invert max-w-none">
                                         {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm">{textContent}</pre>}
                                     </div>
@@ -326,6 +326,7 @@ export default function ProfilePage() {
             }
             case 'image':
             default:
+                 const previewSrc = firstFile?.preview;
                 return (
                     <div className="flex items-center justify-center h-full">
                         <Image
@@ -354,8 +355,10 @@ export default function ProfilePage() {
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
-                                    "p-0 border-0 bg-transparent shadow-none",
-                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') ? "max-w-4xl h-[90vh]" : "max-w-6xl w-auto"
+                                    "p-0 border-0 bg-transparent shadow-none w-auto",
+                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') 
+                                      ? "max-w-4xl h-[90vh]" 
+                                      : "max-w-6xl"
                                 )}>
                                     <EnlargedContentView upload={viewingUpload} />
                                 </DialogContent>

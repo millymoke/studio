@@ -33,7 +33,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
+import type { Upload, UploadedFile, FileWithPreview, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
@@ -105,8 +105,8 @@ export function UploadForm() {
   
   const handleCoverPhotoChange = async (file: File, index: number) => {
     const preview = await readFileAsDataURL(file);
-    const coverFile: FileWithPreview = {
-        file,
+    const coverFile = {
+        file: { name: file.name, type: file.type },
         preview,
     }
     update(index, { ...fields[index], coverPhoto: coverFile });
@@ -117,8 +117,8 @@ export function UploadForm() {
     const blob = await response.blob();
     const file = new File([blob], `frame-for-${fields[index].file.name}.jpg`, { type: 'image/jpeg' });
     
-    const coverFile: FileWithPreview = {
-        file: file,
+    const coverFile = {
+        file: { name: file.name, type: file.type },
         preview: dataUrl,
     }
     update(index, { ...fields[index], coverPhoto: coverFile });
@@ -137,15 +137,11 @@ export function UploadForm() {
         const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
             const originalFile = fileWithValue.file as File;
             
-            // For videos, the preview is handled by the cover photo if it exists.
-            // For other files, we read the content as a data URL.
             const fileType = getFileType(originalFile);
             let fileContent: string | undefined;
-            if (fileType !== 'video') {
+             if (fileType !== 'video') {
                 fileContent = await readFileAsDataURL(originalFile);
             } else {
-                // Store the original object URL for videos so it can be used if needed
-                // but the primary preview comes from the cover photo.
                 fileContent = fileWithValue.preview; 
             }
 
@@ -155,16 +151,13 @@ export function UploadForm() {
                 preview: fileContent,
             };
             
-            if (fileWithValue.coverPhoto && fileWithValue.coverPhoto.file) {
-                const coverFile = fileWithValue.coverPhoto.file as File;
-                const coverPreview = await readFileAsDataURL(coverFile);
+            if (fileWithValue.coverPhoto?.file && fileWithValue.coverPhoto?.preview) {
                 fileData.coverPhoto = {
-                    file: {name: coverFile.name, type: coverFile.type},
-                    preview: coverPreview
+                    file: fileWithValue.coverPhoto.file as SerializableFile,
+                    preview: fileWithValue.coverPhoto.preview as string
                 };
-                 // For videos, the main preview should be the cover photo
-                if (fileType === 'video') {
-                    fileData.preview = coverPreview;
+                 if (fileType === 'video') {
+                    fileData.preview = fileWithValue.coverPhoto.preview as string;
                 }
             }
             
@@ -479,7 +472,3 @@ export function UploadForm() {
     </Form>
   );
 }
-
-    
-
-    

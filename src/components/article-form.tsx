@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
+import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 
 
@@ -72,9 +72,9 @@ export function ArticleForm() {
 
     try {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      // Ensure we only process the cover photo if it's a File object
-      if (values.coverPhoto instanceof File) {
-          const coverFile = values.coverPhoto;
+      
+      const coverFile = values.coverPhoto as File | undefined;
+      if (coverFile instanceof File) {
           const preview = await readFileAsDataURL(coverFile);
           coverPhotoData = {
               file: { name: coverFile.name, type: coverFile.type },
@@ -82,7 +82,7 @@ export function ArticleForm() {
           };
       }
       
-      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain' });
+      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
       const articlePreview = await readFileAsDataURL(articleFile);
 
       const newArticle: Upload = {
