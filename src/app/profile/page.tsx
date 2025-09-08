@@ -224,7 +224,7 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
     
         if (!firstFile) return null;
-    
+        
         const isTextBased = upload.type === 'article' || (upload.type === 'document' && (firstFile.file.type.startsWith('text/') || firstFile.file.type.endsWith('json') || firstFile.file.type.endsWith('xml')));
 
         useEffect(() => {
@@ -233,7 +233,6 @@ export default function ProfilePage() {
                 try {
                     const base64Content = firstFile.preview.split(',')[1];
                     const decodedContent = atob(base64Content);
-                    // This handles UTF-8 characters correctly by decoding from the raw binary string
                     const utf8Content = decodeURIComponent(escape(decodedContent));
                     setTextContent(utf8Content);
                 } catch (e) {
@@ -368,9 +367,9 @@ export default function ProfilePage() {
                                       ? "max-w-4xl h-[90vh]" 
                                       : "max-w-6xl flex items-center justify-center"
                                 )}>
-                                    <DialogHeader className="sr-only">
-                                      <DialogTitle>{viewingUpload.title}</DialogTitle>
-                                      <DialogDescription>Enlarged view of {viewingUpload.title}</DialogDescription>
+                                    <DialogHeader>
+                                      <DialogTitle className="sr-only">{viewingUpload.title}</DialogTitle>
+                                      <DialogDescription className="sr-only">Enlarged view of {viewingUpload.title}</DialogDescription>
                                     </DialogHeader>
                                     <EnlargedContentView upload={viewingUpload} />
                                 </DialogContent>
@@ -525,4 +524,6 @@ export default function ProfilePage() {
     );
 }
     
+    
+
     

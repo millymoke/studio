@@ -91,13 +91,15 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          const fileType = getFileType(file);
           let preview: string;
-          if (fileType === 'document') {
+          // For security reasons, browsers don't allow reading file paths.
+          // We use object URLs for image/video previews and data URLs for documents.
+          if (getFileType(file) === 'document') {
              preview = await readFileAsDataURL(file);
           } else {
              preview = URL.createObjectURL(file);
           }
+          
           return {
               file: file,
               altText: '',
@@ -151,8 +153,6 @@ export function UploadForm() {
                 };
             }
             
-            // For documents, the preview from the form is already a data URL.
-            // For images/videos, it's an object URL which is not persistent but fine for immediate navigation.
             const filePreview = await readFileAsDataURL(originalFile);
 
             return {
@@ -160,6 +160,7 @@ export function UploadForm() {
                 altText: fileWithValue.altText,
                 preview: filePreview,
                 coverPhoto: coverPhotoData,
+                objectPosition: 'center',
             };
         };
 
@@ -222,23 +223,16 @@ export function UploadForm() {
     const file = field.file as File;
     const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
     
-    let previewUrl = coverPhotoData?.preview || field.preview; 
-
     const fileType = getFileType(file);
+    const previewUrl = fileType === 'image' ? field.preview : coverPhotoData?.preview;
 
-    if (fileType === 'image' && previewUrl) {
-      return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+    if (previewUrl) {
+        return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
     if (fileType === 'video') {
-         if (previewUrl && coverPhotoData) {
-            return <Image src={previewUrl} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
-        }
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
     }
     if(fileType === 'document') {
-        if (previewUrl && coverPhotoData) {
-            return <Image src={previewUrl} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
-        }
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }
     return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
@@ -490,4 +484,6 @@ export function UploadForm() {
   );
 }
     
+    
+
     
