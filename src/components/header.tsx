@@ -42,12 +42,10 @@ export default function Header() {
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 cursor-pointer">
                       <AvatarImage src={user.avatar} alt={user.username} data-ai-hint="user avatar" />
                       <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
@@ -92,5 +90,3 @@ export default function Header() {
     </header>
   );
 }
-
-    
