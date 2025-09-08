@@ -73,7 +73,7 @@ export function ArticleForm() {
 
     try {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      const coverFile = values.coverPhoto as File | undefined;
+      const coverFile = values.coverPhoto?.[0] || values.coverPhoto;
       
       if (coverFile && coverFile instanceof File) {
          const serializableCoverFile: SerializableFile = {
@@ -87,7 +87,7 @@ export function ArticleForm() {
          };
       }
       
-      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-t' });
+      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
       const articlePreview = await readFileAsDataURL(articleFile);
 
       const serializableArticleFile: SerializableFile = {

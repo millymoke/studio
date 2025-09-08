@@ -222,31 +222,33 @@ export default function ProfilePage() {
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoadingText, setIsLoadingText] = useState(false);
         const firstFile = upload.files?.[0];
+    
         if (!firstFile) return null;
-        
+    
         const isTextBased = upload.type === 'article' || (upload.type === 'document' && firstFile?.file.type.startsWith('text/'));
-
+    
         useEffect(() => {
-            const filePreview = firstFile?.preview;
-            const isTextDataUri = typeof filePreview === 'string' && filePreview.startsWith('data:text/');
-            
-            if (isTextBased && filePreview && isTextDataUri) {
-                setIsLoadingText(true);
-                try {
-                    const base64Content = filePreview.split(',')[1];
-                    const decodedContent = atob(base64Content);
-                    const utf8Content = decodeURIComponent(escape(decodedContent));
-                    setTextContent(utf8Content);
-                } catch(e) {
-                     console.error("Failed to decode text content", e);
-                     setTextContent("Could not load content.");
-                } finally {
-                     setIsLoadingText(false);
+            if (isTextBased && firstFile.preview) {
+                const isDataUri = firstFile.preview.startsWith('data:');
+                if (isDataUri) {
+                    setIsLoadingText(true);
+                    try {
+                        const base64Content = firstFile.preview.split(',')[1];
+                        const decodedContent = atob(base64Content);
+                        // This handles UTF-8 characters correctly
+                        const utf8Content = decodeURIComponent(escape(decodedContent));
+                        setTextContent(utf8Content);
+                    } catch (e) {
+                        console.error("Failed to decode text content", e);
+                        setTextContent("Could not load content.");
+                    } finally {
+                        setIsLoadingText(false);
+                    }
                 }
             } else {
                 setTextContent(null);
             }
-        }, [isTextBased, firstFile?.preview]);
+        }, [isTextBased, firstFile.preview]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -271,17 +273,19 @@ export default function ProfilePage() {
             );
         }
     
+        const coverPhotoSrc = firstFile.coverPhoto?.preview;
+    
         switch (upload.type) {
             case 'video':
                 const videoFile = upload.files.find(f => f.file.type.startsWith('video/')) || firstFile;
                 return (
-                    <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
+                    <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
                         {videoFile?.preview ? (
                              <video
                                 src={videoFile.preview}
                                 controls
                                 autoPlay
-                                poster={videoFile.coverPhoto?.preview}
+                                poster={coverPhotoSrc}
                                 className="w-full h-full object-contain"
                             />
                         ): <p className="text-white">Could not load video.</p>}
@@ -290,12 +294,11 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const coverPhotoSrc = firstFile?.coverPhoto?.preview;
-                const isPdf = firstFile?.file.type.includes('pdf');
+                const isPdf = firstFile.file.type.includes('pdf');
                 
                 return (
-                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden">
-                       {coverPhotoSrc && (
+                    <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
+                        {coverPhotoSrc && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
                            </div>
@@ -303,7 +306,7 @@ export default function ProfilePage() {
                        <div className="flex-grow w-full border-t overflow-hidden flex flex-col">
                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                                <h3 className="font-bold truncate">{upload.title}</h3>
-                               {firstFile?.preview && (
+                               {firstFile.preview && (
                                    <Button asChild variant="outline" size="sm">
                                        <a href={firstFile.preview} download={firstFile.file.name}>
                                            <Download className="mr-2 h-4 w-4" />
@@ -315,7 +318,7 @@ export default function ProfilePage() {
                           
                            {isPdf && firstFile.preview ? (
                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                           ) : (isTextBased && firstFile.preview) ? (
+                           ) : isTextBased && firstFile.preview ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -334,12 +337,12 @@ export default function ProfilePage() {
             }
             case 'image':
             default:
-                 const previewSrcDefault = firstFile?.preview;
+                 const previewSrcDefault = firstFile.preview;
                 return (
                     <div className="flex items-center justify-center h-full">
                         <Image
                             src={previewSrcDefault || "https://picsum.photos/800/1000"}
-                            alt={firstFile?.altText || upload.title}
+                            alt={firstFile.altText || upload.title}
                             width={800}
                             height={1000}
                             className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
@@ -366,7 +369,7 @@ export default function ProfilePage() {
                                     "p-0 border-0 bg-transparent shadow-none w-auto",
                                     (viewingUpload.type === 'article' || viewingUpload.type === 'document') 
                                       ? "max-w-4xl h-[90vh]" 
-                                      : "max-w-6xl"
+                                      : "max-w-6xl flex items-center justify-center"
                                 )}>
                                     <DialogHeader className="sr-only">
                                       <DialogTitle>{viewingUpload.title}</DialogTitle>
