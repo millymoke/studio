@@ -226,7 +226,10 @@ export default function ProfilePage() {
         const firstFile = upload.files[0];
     
         useEffect(() => {
-            if ((upload.type === 'article' || upload.type === 'document') && firstFile?.preview?.startsWith('data:text/plain')) {
+            const isTextBased = (upload.type === 'article' || upload.type === 'document');
+            const hasTextPreview = firstFile?.preview?.startsWith('data:text/plain');
+    
+            if (isTextBased && hasTextPreview) {
                 setIsLoadingText(true);
                 fetch(firstFile.preview)
                     .then(res => res.text())
@@ -239,10 +242,11 @@ export default function ProfilePage() {
                         setTextContent("Could not load content.");
                         setIsLoadingText(false);
                     });
+            } else {
+                setTextContent(null);
             }
         }, [upload.type, firstFile?.preview]);
     
-        // Carousel view for multiple images
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
                 <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
@@ -282,13 +286,20 @@ export default function ProfilePage() {
                         ) : <p className="text-white">Could not load video.</p>}
                     </div>
                 );
+    
             case 'article':
             case 'document':
                 const isPdf = firstFile?.file.type.includes('pdf');
                 const isText = firstFile?.file.type.startsWith('text/');
+                const coverPhotoSrc = firstFile?.coverPhoto?.preview;
     
                 return (
                     <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-4">
+                        {coverPhotoSrc && (
+                             <div className="w-full aspect-video relative rounded-md overflow-hidden">
+                                <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
+                            </div>
+                        )}
                         <Button asChild>
                             <a href={previewSrc} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
@@ -300,8 +311,8 @@ export default function ProfilePage() {
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : isText && previewSrc ? (
                                 <ScrollArea className="h-full w-full">
-                                     <div className="p-6 prose prose-invert">
-                                        {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">{textContent}</pre>}
+                                     <div className="p-8 prose prose-neutral dark:prose-invert max-w-none">
+                                        {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm">{textContent}</pre>}
                                     </div>
                                     <ScrollBar />
                                 </ScrollArea>
@@ -315,6 +326,7 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 );
+    
             case 'image':
             default:
                 return (
