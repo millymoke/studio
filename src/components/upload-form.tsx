@@ -33,18 +33,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile, FileWithPreview, SerializableFile } from "@/lib/types";
+import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 
-
 const fileSchema = z.object({
-  file: z.any(),
+  file: z.any(), // instance of File
   altText: z.string().optional(),
-  coverPhoto: z.any().optional(),
-  videoFrame: z.string().optional(),
-  preview: z.string().optional(),
+  coverPhoto: z.any().optional(), // instance of File
+  preview: z.string().optional(), // object URL
 });
 
 const formSchema = z.object({
@@ -71,7 +69,9 @@ export function UploadForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [thumbnailSelectorOpen, setThumbnailSelectorOpen] = useState(false);
   const [videoForThumbnail, setVideoForThumbnail] = useState<{file: File, index: number} | null>(null);
-  const coverPhotoInputRef = useRef<HTMLInputElement>(null);
+  
+  // Use refs for each cover photo input to avoid conflicts
+  const coverPhotoInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -96,20 +96,15 @@ export function UploadForm() {
           return {
               file: file,
               altText: '',
-              preview: URL.createObjectURL(file), // Keep object URL for immediate preview
+              preview: URL.createObjectURL(file),
           }
       });
       append(newFiles);
     }
   };
   
-  const handleCoverPhotoChange = async (file: File, index: number) => {
-    const preview = await readFileAsDataURL(file);
-    const coverFile = {
-        file: { name: file.name, type: file.type },
-        preview,
-    }
-    update(index, { ...fields[index], coverPhoto: coverFile });
+  const handleCoverPhotoChange = (file: File, index: number) => {
+    update(index, { ...fields[index], coverPhoto: file });
   };
   
   const handleFrameSelect = async (dataUrl: string, index: number) => {
@@ -117,11 +112,7 @@ export function UploadForm() {
     const blob = await response.blob();
     const file = new File([blob], `frame-for-${fields[index].file.name}.jpg`, { type: 'image/jpeg' });
     
-    const coverFile = {
-        file: { name: file.name, type: file.type },
-        preview: dataUrl,
-    }
-    update(index, { ...fields[index], coverPhoto: coverFile });
+    update(index, { ...fields[index], coverPhoto: file });
     setThumbnailSelectorOpen(false);
     setVideoForThumbnail(null);
   }
@@ -136,29 +127,30 @@ export function UploadForm() {
 
         const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
             const originalFile = fileWithValue.file as File;
+            const coverPhotoFile = fileWithValue.coverPhoto as File | undefined;
             
-            const fileType = getFileType(originalFile);
-            let fileContent: string | undefined;
-             if (fileType !== 'video') {
-                fileContent = await readFileAsDataURL(originalFile);
-            } else {
-                fileContent = fileWithValue.preview; 
-            }
+            // The main file's content (or its object URL for videos)
+            const filePreview = fileWithValue.preview;
 
+            let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
+            if (coverPhotoFile) {
+                const coverPreview = await readFileAsDataURL(coverPhotoFile);
+                coverPhotoData = {
+                    file: { name: coverPhotoFile.name, type: coverPhotoFile.type, size: coverPhotoFile.size },
+                    preview: coverPreview
+                };
+            }
+            
             const fileData: UploadedFile = {
-                file: { name: originalFile.name, type: originalFile.type },
+                file: { name: originalFile.name, type: originalFile.type, size: originalFile.size },
                 altText: fileWithValue.altText,
-                preview: fileContent,
+                preview: filePreview, // Keep the object URL for videos
+                coverPhoto: coverPhotoData,
             };
             
-            if (fileWithValue.coverPhoto?.file && fileWithValue.coverPhoto?.preview) {
-                fileData.coverPhoto = {
-                    file: fileWithValue.coverPhoto.file as SerializableFile,
-                    preview: fileWithValue.coverPhoto.preview as string
-                };
-                 if (fileType === 'video') {
-                    fileData.preview = fileWithValue.coverPhoto.preview as string;
-                }
+             // For text-based documents, we need the data URL, not object URL
+            if (getFileType(originalFile) === 'document') {
+                fileData.preview = await readFileAsDataURL(originalFile);
             }
             
             return fileData;
@@ -185,7 +177,7 @@ export function UploadForm() {
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
-                type: getFileType(values.files[0].file),
+                type: getFileType(values.files[0].file), // Base type on first file
                 title: values.title,
                 description: values.description || '',
                 tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
@@ -201,6 +193,13 @@ export function UploadForm() {
         toast({
           title: "Files Uploaded!",
           description: "Your files have been successfully uploaded.",
+        });
+
+        // Clean up object URLs after submission
+        fields.forEach(field => {
+            if (field.preview) {
+                URL.revokeObjectURL(field.preview);
+            }
         });
 
         form.reset();
@@ -221,16 +220,30 @@ export function UploadForm() {
 
   const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
     const file = field.file as File;
-    const previewUrl = field.coverPhoto?.preview || field.preview;
-    
-    if (getFileType(file) === 'image' && previewUrl) {
+    const coverPhotoFile = field.coverPhoto as File | undefined;
+    let previewUrl = field.preview; // Object URL for image/video
+
+    // If there's a cover photo, create a temporary object URL for it to show in the preview
+    if (coverPhotoFile) {
+        previewUrl = URL.createObjectURL(coverPhotoFile);
+    }
+
+    const fileType = getFileType(file);
+
+    if (fileType === 'image' && previewUrl) {
       return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
-    if (field.coverPhoto?.preview) {
-        return <Image src={field.coverPhoto.preview} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
-    }
-    if (file.type.startsWith('video/')) {
+    if (fileType === 'video') {
+         if (previewUrl && coverPhotoFile) {
+            return <Image src={previewUrl} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+        }
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
+    }
+    if(fileType === 'document') {
+        if (previewUrl && coverPhotoFile) {
+            return <Image src={previewUrl} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+        }
+        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }
     return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
   }
@@ -281,13 +294,13 @@ export function UploadForm() {
                                   <>
                                   <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
-                                          <Button variant="outline" size="sm">
+                                          <Button type="button" variant="outline" size="sm">
                                               <ImagePlus className="mr-2 h-4 w-4"/>
                                               Set Cover Photo
                                           </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent>
-                                          <DropdownMenuItem onSelect={() => coverPhotoInputRef.current?.click()}>
+                                          <DropdownMenuItem onSelect={() => coverPhotoInputRefs.current[index]?.click()}>
                                               Upload Image
                                           </DropdownMenuItem>
                                           <DropdownMenuItem onSelect={() => {
@@ -302,7 +315,7 @@ export function UploadForm() {
                                       type="file" 
                                       accept="image/*" 
                                       className="hidden"
-                                      ref={coverPhotoInputRef}
+                                      ref={el => coverPhotoInputRefs.current[index] = el}
                                       onChange={(e) => {
                                           if(e.target.files?.[0]) {
                                               handleCoverPhotoChange(e.target.files[0], index)
@@ -310,8 +323,9 @@ export function UploadForm() {
                                       }}
                                   />
                                   </>
-                              ) : (
+                              ) : ( // document
                                   <FormItem className="flex-1">
+                                      <FormLabel className="sr-only">Cover Photo</FormLabel>
                                       <FormControl>
                                           <Input 
                                           type="file" 
@@ -325,7 +339,7 @@ export function UploadForm() {
                                           />
                                       </FormControl>
                                       <FormDescription className="text-xs">
-                                          Upload a cover photo
+                                          Upload an optional cover photo.
                                       </FormDescription>
                                       <FormMessage />
                                   </FormItem>
@@ -472,3 +486,5 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    

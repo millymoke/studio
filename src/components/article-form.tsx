@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
+import type { Upload, UploadedFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 
 
@@ -72,12 +72,12 @@ export function ArticleForm() {
 
     try {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      
       const coverFile = values.coverPhoto as File | undefined;
+
       if (coverFile instanceof File) {
           const preview = await readFileAsDataURL(coverFile);
           coverPhotoData = {
-              file: { name: coverFile.name, type: coverFile.type },
+              file: { name: coverFile.name, type: coverFile.type, size: coverFile.size },
               preview,
           };
       }
@@ -95,7 +95,7 @@ export function ArticleForm() {
         displayOption: 'individual',
         files: [
             {
-                file: { name: articleFile.name, type: articleFile.type },
+                file: { name: articleFile.name, type: articleFile.type, size: articleFile.size },
                 preview: articlePreview,
                 coverPhoto: coverPhotoData,
             }
@@ -215,3 +215,5 @@ export function ArticleForm() {
     </Form>
   );
 }
+
+    

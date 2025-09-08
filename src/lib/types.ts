@@ -3,24 +3,25 @@
 export interface SerializableFile {
     name: string;
     type: string;
+    size: number;
 }
 
-// Represents a file that has been processed for preview
+// Represents a file that has been processed for preview on the client
 export interface FileWithPreview {
     file: File | SerializableFile;
-    preview: string;
+    preview: string; // Object URL or Data URL
 }
 
-// Represents a file that has been uploaded and stored
+// Represents a file that has been uploaded and stored, ready for serialization
 export interface UploadedFile {
     file: SerializableFile;
-    preview?: string; // for images, or data URI for other file types
+    preview?: string; // For images/videos, this could be an object URL. For documents, a data URI.
     altText?: string;
     objectPosition?: string; // e.g. 'top', 'center', 'bottom'
     coverPhoto?: {
         file: SerializableFile;
-        preview: string;
-    }
+        preview: string; // Data URL for the cover photo
+    };
 }
 
 export interface Upload {
@@ -33,3 +34,5 @@ export interface Upload {
   files: UploadedFile[];
   displayOption: 'individual' | 'carousel';
 }
+
+    

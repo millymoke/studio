@@ -172,7 +172,7 @@ export default function ProfilePage() {
 
         switch (upload.type) {
             case 'video':
-                return (
+                 return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
                         {previewSrc ? 
                             <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
@@ -216,16 +216,16 @@ export default function ProfilePage() {
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoadingText, setIsLoadingText] = useState(false);
-        
         const firstFile = upload.files[0];
     
         useEffect(() => {
             const isTextBased = upload.type === 'article' || upload.type === 'document';
-            const isTextDataUri = firstFile?.preview?.startsWith('data:text/plain');
+            const filePreview = firstFile?.preview;
+            const isTextDataUri = typeof filePreview === 'string' && filePreview.startsWith('data:text/plain');
             
             if (isTextBased && isTextDataUri) {
                 setIsLoadingText(true);
-                fetch(firstFile.preview)
+                fetch(filePreview)
                     .then(res => res.text())
                     .then(text => {
                         setTextContent(text);
@@ -268,53 +268,62 @@ export default function ProfilePage() {
             case 'video':
                 return (
                     <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
-                        {firstFile?.preview ? (
+                        {firstFile?.preview && !firstFile.coverPhoto ? (
                             <video
                                 src={firstFile.preview}
                                 controls
                                 autoPlay
                                 className="w-full h-full object-contain"
                             />
-                        ) : <p className="text-white">Could not load video.</p>}
+                        ) : firstFile?.coverPhoto?.preview ? (
+                             <video
+                                src={(upload.files.find(f => f.file.type.startsWith('video/')) || firstFile).preview}
+                                controls
+                                autoPlay
+                                poster={firstFile.coverPhoto.preview}
+                                className="w-full h-full object-contain"
+                            />
+                        ): <p className="text-white">Could not load video.</p>}
                     </div>
                 );
     
             case 'article':
             case 'document': {
+                const previewSrc = firstFile?.preview;
+                const coverPhotoSrc = firstFile?.coverPhoto?.preview;
                 const isPdf = firstFile?.file.type.includes('pdf');
                 const isText = firstFile?.file.type.startsWith('text/');
-                const coverPhotoSrc = firstFile?.coverPhoto?.preview;
-                const previewSrc = firstFile?.preview;
-    
+
                 return (
-                     <div className="flex flex-col h-full w-full bg-background rounded-md">
+                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden">
                         {coverPhotoSrc && (
-                             <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0">
+                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                 <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
                             </div>
                         )}
                         <div className="flex-grow w-full border-t overflow-hidden flex flex-col">
-                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
+                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                                 <h3 className="font-bold truncate">{upload.title}</h3>
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={previewSrc} download={firstFile.file.name}>
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Download
-                                    </a>
-                                </Button>
+                                {previewSrc && (
+                                    <Button asChild variant="outline" size="sm">
+                                        <a href={previewSrc} download={firstFile.file.name}>
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Download
+                                        </a>
+                                    </Button>
+                                )}
                             </div>
                            
                             {isPdf && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                            ) : isText && previewSrc ? (
-                                <ScrollArea className="h-full w-full flex-grow">
-                                     <div className="p-8 prose prose-neutral dark:prose-invert max-w-none">
-                                        {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm">{textContent}</pre>}
+                            ) : isText ? (
+                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
+                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
                                     </div>
-                                    <ScrollBar />
                                 </ScrollArea>
                             ) : (
-                                <div className="w-full flex-grow rounded-b-md flex flex-col items-center justify-center p-8 text-center">
+                                <div className="w-full flex-grow rounded-b-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                                     <h3 className="text-xl font-bold">{upload.title}</h3>
                                     <p className="text-muted-foreground">Preview not available for this file type. Please download to view.</p>
@@ -512,3 +521,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
