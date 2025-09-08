@@ -41,7 +41,7 @@ const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
   coverPhoto: z.any().optional(), // { file: File, preview: string }
-  preview: z.string().optional(), // object URL
+  preview: z.string(), // object URL or data URL
 });
 
 const formSchema = z.object({
@@ -88,15 +88,24 @@ export function UploadForm() {
     name: "files"
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files).map(file => {
+      const newFilesPromises = Array.from(e.target.files).map(async file => {
+          const fileType = getFileType(file);
+          let preview: string;
+          if (fileType === 'document') {
+             // For documents, we need the data URL immediately for potential submission
+             preview = await readFileAsDataURL(file);
+          } else {
+             preview = URL.createObjectURL(file);
+          }
           return {
               file: file,
               altText: '',
-              preview: URL.createObjectURL(file),
+              preview: preview,
           }
       });
+      const newFiles = await Promise.all(newFilesPromises);
       append(newFiles);
     }
   };
@@ -143,13 +152,11 @@ export function UploadForm() {
                 };
             }
             
-            let filePreview: string | undefined;
-            // Use object URLs for client-side preview, but read docs as data URLs for storage
-            if (getFileType(originalFile) === 'document') {
-                filePreview = await readFileAsDataURL(originalFile);
-            } else {
-                filePreview = fileWithValue.preview; // This is an object URL
-            }
+            // For images and videos, their preview is an object URL which is not persistent.
+            // For documents, the preview is already a data URL.
+            // We pass object URLs to the profile page, which will use them for immediate display.
+            // In a real app, you'd upload the file and get a persistent URL.
+            const filePreview = fileWithValue.preview;
 
             return {
                 file: serializableFile,
@@ -198,12 +205,8 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
-        // Revoke object URLs after submission
-        values.files.forEach(field => {
-            if (field.preview && field.preview.startsWith('blob:')) {
-                URL.revokeObjectURL(field.preview);
-            }
-        });
+        // Don't revoke object URLs here; the profile page will need them.
+        // In a real app, you would handle this cleanup differently.
 
         form.reset();
         remove(); // This removes all fields from the field array
@@ -225,10 +228,7 @@ export function UploadForm() {
     const file = field.file as File;
     const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
     
-    let previewUrl = field.preview; 
-    if (coverPhotoData?.preview) {
-        previewUrl = coverPhotoData.preview;
-    }
+    let previewUrl = coverPhotoData?.preview || field.preview; 
 
     const fileType = getFileType(file);
 
@@ -495,4 +495,6 @@ export function UploadForm() {
   );
 }
     
+    
+
     

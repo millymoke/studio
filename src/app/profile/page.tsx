@@ -114,7 +114,7 @@ export default function ProfilePage() {
         const mockSavedUploads = generateMockUploads(BATCH_SIZE, 100);
         setSavedUploads(mockSavedUploads);
 
-        setHasMore(initialBatch.length < allUploadsRef.current.length);
+        setHasMore(allUploadsRef.current.length > BATCH_SIZE);
         setIsLoading(false);
     }, [loadUploadsFromStorage]);
     
@@ -228,7 +228,7 @@ export default function ProfilePage() {
 
         useEffect(() => {
             const filePreview = firstFile?.preview;
-            const isTextDataUri = typeof filePreview === 'string' && (filePreview.startsWith('data:text/') || filePreview.startsWith('data:application/pdf') || filePreview.startsWith('data:application/octet-stream'));
+            const isTextDataUri = typeof filePreview === 'string' && filePreview.startsWith('data:text/');
             
             if (isTextBased && filePreview && isTextDataUri) {
                 setIsLoadingText(true);
@@ -246,7 +246,7 @@ export default function ProfilePage() {
             } else {
                 setTextContent(null);
             }
-        }, [isTextBased, firstFile?.preview, firstFile?.file.type]);
+        }, [isTextBased, firstFile?.preview]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -294,7 +294,7 @@ export default function ProfilePage() {
                 const isPdf = firstFile?.file.type.includes('pdf');
                 
                 return (
-                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden max-w-4xl mx-auto">
+                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden">
                        {coverPhotoSrc && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
@@ -525,4 +525,6 @@ export default function ProfilePage() {
     );
 }
     
+    
+
     

@@ -59,7 +59,7 @@ export function ArticleForm() {
     const file = e.target.files?.[0];
     if (file) {
       const preview = await readFileAsDataURL(file);
-      form.setValue('coverPhoto', { file, preview });
+      form.setValue('coverPhoto', file); // Store the file object
       setCoverPreview(preview);
     } else {
       form.setValue('coverPhoto', undefined);
@@ -73,15 +73,16 @@ export function ArticleForm() {
 
     try {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      if (values.coverPhoto?.file && values.coverPhoto?.preview) {
+      if (values.coverPhoto) {
+        const coverFile = values.coverPhoto as File;
          const serializableCoverFile: SerializableFile = {
-            name: values.coverPhoto.file.name,
-            type: values.coverPhoto.file.type,
-            size: values.coverPhoto.file.size,
+            name: coverFile.name,
+            type: coverFile.type,
+            size: coverFile.size,
          };
          coverPhotoData = {
             file: serializableCoverFile,
-            preview: values.coverPhoto.preview,
+            preview: await readFileAsDataURL(coverFile),
          };
       }
       
@@ -225,4 +226,6 @@ export function ArticleForm() {
   );
 }
     
+    
+
     
