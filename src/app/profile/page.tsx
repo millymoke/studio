@@ -12,7 +12,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { EditPostForm } from '@/components/edit-post-form';
 import type { Upload } from '@/lib/types';
 import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
@@ -34,7 +34,7 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
       link: 'example.com',
       tags: ['inspiration', 'design', 'art'],
       files: [{
-        file: { name: `file${i}.jpg`, type: 'image/jpeg' },
+        file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
         preview: `https://picsum.photos/800/1000?random=${i + 1}`,
         altText: 'An example of beautiful content',
         objectPosition: 'center',
@@ -174,9 +174,9 @@ export default function ProfilePage() {
             case 'video':
                  return (
                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        {previewSrc ? 
-                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> :
-                            <PlayCircle className="w-12 h-12" />
+                        {coverPhotoSrc ? 
+                            <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" /> :
+                            <Image src={previewSrc || "https://picsum.photos/800/1000"} alt={upload.title} fill className="object-cover" />
                         }
                          <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
                             <PlayCircle className="w-12 h-12" />
@@ -219,9 +219,9 @@ export default function ProfilePage() {
         const firstFile = upload.files[0];
     
         useEffect(() => {
-            const isTextBased = upload.type === 'article' || upload.type === 'document';
+            const isTextBased = upload.type === 'article' || (upload.type === 'document' && firstFile?.file.type.startsWith('text/'));
             const filePreview = firstFile?.preview;
-            const isTextDataUri = typeof filePreview === 'string' && filePreview.startsWith('data:text/plain');
+            const isTextDataUri = typeof filePreview === 'string' && filePreview.startsWith('data:text/');
             
             if (isTextBased && isTextDataUri) {
                 setIsLoadingText(true);
@@ -239,7 +239,7 @@ export default function ProfilePage() {
             } else {
                 setTextContent(null);
             }
-        }, [upload.type, firstFile?.preview]);
+        }, [upload.type, firstFile?.preview, firstFile?.file.type]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -266,21 +266,15 @@ export default function ProfilePage() {
     
         switch (upload.type) {
             case 'video':
+                const videoFile = upload.files.find(f => f.file.type.startsWith('video/')) || firstFile;
                 return (
                     <div className="w-full aspect-video bg-black rounded-md flex items-center justify-center">
-                        {firstFile?.preview && !firstFile.coverPhoto ? (
-                            <video
-                                src={firstFile.preview}
-                                controls
-                                autoPlay
-                                className="w-full h-full object-contain"
-                            />
-                        ) : firstFile?.coverPhoto?.preview ? (
+                        {videoFile?.preview ? (
                              <video
-                                src={(upload.files.find(f => f.file.type.startsWith('video/')) || firstFile).preview}
+                                src={videoFile.preview}
                                 controls
                                 autoPlay
-                                poster={firstFile.coverPhoto.preview}
+                                poster={videoFile.coverPhoto?.preview}
                                 className="w-full h-full object-contain"
                             />
                         ): <p className="text-white">Could not load video.</p>}
@@ -289,7 +283,6 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const previewSrc = firstFile?.preview;
                 const coverPhotoSrc = firstFile?.coverPhoto?.preview;
                 const isPdf = firstFile?.file.type.includes('pdf');
                 const isText = firstFile?.file.type.startsWith('text/');
@@ -304,9 +297,9 @@ export default function ProfilePage() {
                        <div className="flex-grow w-full border-t overflow-hidden flex flex-col">
                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                                <h3 className="font-bold truncate">{upload.title}</h3>
-                               {previewSrc && (
+                               {firstFile?.preview && (
                                    <Button asChild variant="outline" size="sm">
-                                       <a href={previewSrc} download={firstFile.file.name}>
+                                       <a href={firstFile.preview} download={firstFile.file.name}>
                                            <Download className="mr-2 h-4 w-4" />
                                            Download
                                        </a>
@@ -314,8 +307,8 @@ export default function ProfilePage() {
                                )}
                            </div>
                           
-                           {isPdf && previewSrc ? (
-                               <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                           {isPdf && firstFile.preview ? (
+                               <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                            ) : isText ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
@@ -369,6 +362,9 @@ export default function ProfilePage() {
                                       ? "max-w-4xl h-[90vh]" 
                                       : "max-w-6xl"
                                 )}>
+                                    <DialogHeader className="sr-only">
+                                      <DialogTitle>{viewingUpload.title}</DialogTitle>
+                                    </DialogHeader>
                                     <EnlargedContentView upload={viewingUpload} />
                                 </DialogContent>
                             )}
@@ -505,7 +501,7 @@ export default function ProfilePage() {
                 <AlertDialog open={!!deletingUploadId} onOpenChange={(open) => !open && setDeletingUploadId(null)}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogTitleComponent>Are you absolutely sure?</AlertDialogTitleComponent>
                             <AlertDialogDescription>
                                 This action cannot be undone. This will permanently delete your post.
                             </AlertDialogDescription>

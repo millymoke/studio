@@ -30,10 +30,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Trash2, PlayCircle, File as FileIcon, ImagePlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
+import type { Upload, UploadedFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
@@ -70,7 +69,6 @@ export function UploadForm() {
   const [thumbnailSelectorOpen, setThumbnailSelectorOpen] = useState(false);
   const [videoForThumbnail, setVideoForThumbnail] = useState<{file: File, index: number} | null>(null);
   
-  // Use refs for each cover photo input to avoid conflicts
   const coverPhotoInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<FormValues>({
@@ -129,8 +127,7 @@ export function UploadForm() {
             const originalFile = fileWithValue.file as File;
             const coverPhotoFile = fileWithValue.coverPhoto as File | undefined;
             
-            // The main file's content (or its object URL for videos)
-            const filePreview = fileWithValue.preview;
+            let filePreview: string | undefined = fileWithValue.preview;
 
             let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
             if (coverPhotoFile) {
@@ -141,17 +138,16 @@ export function UploadForm() {
                 };
             }
             
+            if (getFileType(originalFile) === 'document') {
+                filePreview = await readFileAsDataURL(originalFile);
+            }
+            
             const fileData: UploadedFile = {
                 file: { name: originalFile.name, type: originalFile.type, size: originalFile.size },
                 altText: fileWithValue.altText,
-                preview: filePreview, // Keep the object URL for videos
+                preview: filePreview,
                 coverPhoto: coverPhotoData,
             };
-            
-             // For text-based documents, we need the data URL, not object URL
-            if (getFileType(originalFile) === 'document') {
-                fileData.preview = await readFileAsDataURL(originalFile);
-            }
             
             return fileData;
         };
@@ -195,7 +191,6 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
-        // Clean up object URLs after submission
         fields.forEach(field => {
             if (field.preview) {
                 URL.revokeObjectURL(field.preview);
@@ -221,9 +216,8 @@ export function UploadForm() {
   const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
     const file = field.file as File;
     const coverPhotoFile = field.coverPhoto as File | undefined;
-    let previewUrl = field.preview; // Object URL for image/video
+    let previewUrl = field.preview; 
 
-    // If there's a cover photo, create a temporary object URL for it to show in the preview
     if (coverPhotoFile) {
         previewUrl = URL.createObjectURL(coverPhotoFile);
     }
@@ -268,7 +262,7 @@ export function UploadForm() {
         
         {fields.length > 0 && (
           <div className="space-y-4">
-              <Label>Uploaded Files</Label>
+              <FormLabel>Uploaded Files</FormLabel>
               {fields.map((field, index) => {
                   const fileType = getFileType(field.file);
                   return (
