@@ -295,7 +295,7 @@ export default function ProfilePage() {
                 const isText = firstFile?.file.type.startsWith('text/');
 
                 return (
-                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden">
+                     <div className="flex flex-col h-full w-full bg-background rounded-md overflow-hidden max-w-4xl mx-auto">
                         {coverPhotoSrc && (
                             <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                 <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
@@ -335,11 +335,11 @@ export default function ProfilePage() {
             }
             case 'image':
             default:
-                 const previewSrc = firstFile?.preview;
+                 const previewSrcDefault = firstFile?.preview;
                 return (
                     <div className="flex items-center justify-center h-full">
                         <Image
-                            src={previewSrc || "https://picsum.photos/800/1000"}
+                            src={previewSrcDefault || "https://picsum.photos/800/1000"}
                             alt={firstFile?.altText || upload.title}
                             width={800}
                             height={1000}
