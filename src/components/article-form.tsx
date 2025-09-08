@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile } from "@/lib/types";
+import type { Upload, UploadedFile, FileWithPreview } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 
 
