@@ -19,6 +19,8 @@ import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+
 
 const generateMockUploads = (count: number, offset = 0): Upload[] => {
   return Array.from({ length: count }).map((_, i) => {
@@ -295,9 +297,9 @@ export default function ProfilePage() {
                 const coverPhotoSrc = firstFile?.coverPhoto?.preview;
     
                 return (
-                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-4">
+                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-4 h-full">
                         {coverPhotoSrc && (
-                             <div className="w-full aspect-video relative rounded-md overflow-hidden">
+                             <div className="w-full aspect-video relative rounded-md overflow-hidden flex-shrink-0">
                                 <Image src={coverPhotoSrc} alt={upload.title} layout="fill" objectFit="cover" />
                             </div>
                         )}
@@ -307,11 +309,11 @@ export default function ProfilePage() {
                                 Download File
                             </a>
                         </Button>
-                        <div className="w-full h-[70vh] bg-background rounded-md border">
+                        <div className={cn("w-full bg-background rounded-md border flex-grow", coverPhotoSrc ? "h-[calc(85vh-250px)]" : "h-[85vh]")}>
                             {isPdf && previewSrc ? (
                                 <embed src={previewSrc} type={firstFile.file.type} width="100%" height="100%" />
                             ) : isText && previewSrc ? (
-                                <ScrollArea className="h-full w-full bg-white text-black dark:bg-card dark:text-foreground">
+                                <ScrollArea className="h-full w-full bg-white text-black dark:bg-card dark:text-foreground rounded-md">
                                      <div className="p-8 prose prose-neutral dark:prose-invert max-w-none">
                                         {isLoadingText ? <Loader2 className="animate-spin" /> : <pre className="whitespace-pre-wrap font-sans text-sm">{textContent}</pre>}
                                     </div>
@@ -331,14 +333,13 @@ export default function ProfilePage() {
             case 'image':
             default:
                 return (
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center h-full">
                         <Image
                             src={previewSrc || "https://picsum.photos/800/1000"}
                             alt={firstFile?.altText || upload.title}
                             width={800}
                             height={1000}
-                            className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
-                            style={{ objectPosition: firstFile?.objectPosition || 'center' }}
+                            className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
                         />
                     </div>
                 );
@@ -359,13 +360,15 @@ export default function ProfilePage() {
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
-                                    "max-w-6xl w-auto p-8",
-                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') && "max-w-4xl"
+                                    "max-w-6xl w-full p-4 sm:p-8",
+                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') ? "max-w-4xl h-[90vh]" : "w-auto"
                                 )}>
                                      <DialogHeader>
                                         <DialogTitle>{viewingUpload.title}</DialogTitle>
                                      </DialogHeader>
-                                     <EnlargedContentView upload={viewingUpload} />
+                                     <div className="h-[calc(100%-4rem)] overflow-y-auto">
+                                        <EnlargedContentView upload={viewingUpload} />
+                                     </div>
                                 </DialogContent>
                             )}
                         </Dialog>
