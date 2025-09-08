@@ -96,10 +96,12 @@ export default function ProfilePage() {
     const loadInitialData = useCallback(() => {
         setIsLoading(true);
         const storedUploads = loadUploadsFromStorage();
+        
+        // Only generate mocks if storage is empty
         if (storedUploads.length > 0) {
             allUploadsRef.current = storedUploads;
         } else {
-            const mockUploads = generateMockUploads(BATCH_SIZE);
+            const mockUploads = generateMockUploads(BATCH_SIZE * 2); // Generate more mocks to demonstrate scrolling
             try {
                 localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
                 allUploadsRef.current = mockUploads;
@@ -233,7 +235,10 @@ export default function ProfilePage() {
                 try {
                     const base64Content = firstFile.preview.split(',')[1];
                     const decodedContent = atob(base64Content);
-                    const utf8Content = decodeURIComponent(escape(decodedContent));
+                    // Use TextDecoder for robust UTF-8 decoding
+                    const textDecoder = new TextDecoder('utf-8');
+                    const uint8Array = new Uint8Array(decodedContent.split('').map(char => char.charCodeAt(0)));
+                    const utf8Content = textDecoder.decode(uint8Array);
                     setTextContent(utf8Content);
                 } catch (e) {
                     console.error("Failed to decode text content", e);
