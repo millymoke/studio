@@ -222,6 +222,7 @@ export default function ProfilePage() {
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoadingText, setIsLoadingText] = useState(false);
         const firstFile = upload.files?.[0];
+        if (!firstFile) return null;
         
         const isTextBased = upload.type === 'article' || (upload.type === 'document' && firstFile?.file.type.startsWith('text/'));
 
@@ -231,17 +232,17 @@ export default function ProfilePage() {
             
             if (isTextBased && filePreview && isTextDataUri) {
                 setIsLoadingText(true);
-                fetch(filePreview)
-                    .then(res => res.text())
-                    .then(text => {
-                        setTextContent(text);
-                        setIsLoadingText(false);
-                    })
-                    .catch(err => {
-                        console.error("Failed to fetch text content", err);
-                        setTextContent("Could not load content.");
-                        setIsLoadingText(false);
-                    });
+                try {
+                    const base64Content = filePreview.split(',')[1];
+                    const decodedContent = atob(base64Content);
+                    const utf8Content = decodeURIComponent(escape(decodedContent));
+                    setTextContent(utf8Content);
+                } catch(e) {
+                     console.error("Failed to decode text content", e);
+                     setTextContent("Could not load content.");
+                } finally {
+                     setIsLoadingText(false);
+                }
             } else {
                 setTextContent(null);
             }

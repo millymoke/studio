@@ -59,16 +59,7 @@ export function ArticleForm() {
     const file = e.target.files?.[0];
     if (file) {
       const preview = await readFileAsDataURL(file);
-      const serializableFile: SerializableFile = {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-      };
-      const coverPhotoData: UploadedFile['coverPhoto'] = {
-          file: serializableFile,
-          preview,
-      };
-      form.setValue('coverPhoto', coverPhotoData);
+      form.setValue('coverPhoto', { file, preview });
       setCoverPreview(preview);
     } else {
       form.setValue('coverPhoto', undefined);
@@ -81,9 +72,20 @@ export function ArticleForm() {
     setIsLoading(true);
 
     try {
-      const coverPhotoData = values.coverPhoto as UploadedFile['coverPhoto'] | undefined;
+      let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
+      if (values.coverPhoto?.file && values.coverPhoto?.preview) {
+         const serializableCoverFile: SerializableFile = {
+            name: values.coverPhoto.file.name,
+            type: values.coverPhoto.file.type,
+            size: values.coverPhoto.file.size,
+         };
+         coverPhotoData = {
+            file: serializableCoverFile,
+            preview: values.coverPhoto.preview,
+         };
+      }
       
-      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-t' });
+      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
       const articlePreview = await readFileAsDataURL(articleFile);
 
       const serializableArticleFile: SerializableFile = {

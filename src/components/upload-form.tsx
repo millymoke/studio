@@ -40,7 +40,7 @@ import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
-  coverPhoto: z.any().optional(), // UploadedFile['coverPhoto']
+  coverPhoto: z.any().optional(), // { file: File, preview: string }
   preview: z.string().optional(), // object URL
 });
 
@@ -103,16 +103,7 @@ export function UploadForm() {
   
   const handleCoverPhotoChange = async (file: File, index: number) => {
     const preview = await readFileAsDataURL(file);
-    const serializableFile: SerializableFile = {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    };
-    const coverPhotoData: UploadedFile['coverPhoto'] = {
-        file: serializableFile,
-        preview
-    };
-    update(index, { ...fields[index], coverPhoto: coverPhotoData });
+    update(index, { ...fields[index], coverPhoto: { file, preview } });
   };
   
   const handleFrameSelect = async (dataUrl: string, index: number) => {
@@ -139,15 +130,27 @@ export function UploadForm() {
             
             const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
 
-            const coverPhotoData = fileWithValue.coverPhoto as UploadedFile['coverPhoto'] | undefined;
-            
-            let filePreview: string | undefined = fileWithValue.preview;
-            // For documents, we must read them as data URIs to store them.
-            // For images and videos, we can use the object URL for display and don't need to store the full data.
-            if (getFileType(originalFile) === 'document') {
-                filePreview = await readFileAsDataURL(originalFile);
+            let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
+            if (fileWithValue.coverPhoto?.file && fileWithValue.coverPhoto?.preview) {
+                const serializableCoverFile: SerializableFile = {
+                    name: fileWithValue.coverPhoto.file.name,
+                    type: fileWithValue.coverPhoto.file.type,
+                    size: fileWithValue.coverPhoto.file.size,
+                };
+                coverPhotoData = {
+                    file: serializableCoverFile,
+                    preview: fileWithValue.coverPhoto.preview,
+                };
             }
             
+            let filePreview: string | undefined;
+            // Use object URLs for client-side preview, but read docs as data URLs for storage
+            if (getFileType(originalFile) === 'document') {
+                filePreview = await readFileAsDataURL(originalFile);
+            } else {
+                filePreview = fileWithValue.preview; // This is an object URL
+            }
+
             return {
                 file: serializableFile,
                 altText: fileWithValue.altText,
@@ -195,8 +198,9 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
-        fields.forEach(field => {
-            if (field.preview) {
+        // Revoke object URLs after submission
+        values.files.forEach(field => {
+            if (field.preview && field.preview.startsWith('blob:')) {
                 URL.revokeObjectURL(field.preview);
             }
         });
@@ -219,9 +223,9 @@ export function UploadForm() {
 
   const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
     const file = field.file as File;
-    const coverPhotoData = field.coverPhoto as UploadedFile['coverPhoto'] | undefined;
+    const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
+    
     let previewUrl = field.preview; 
-
     if (coverPhotoData?.preview) {
         previewUrl = coverPhotoData.preview;
     }
@@ -343,7 +347,13 @@ export function UploadForm() {
                                   </FormItem>
                               )}
                               </div>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => {
+                                  const fieldPreview = fields[index].preview;
+                                  if (fieldPreview && fieldPreview.startsWith('blob:')) {
+                                      URL.revokeObjectURL(fieldPreview);
+                                  }
+                                  remove(index);
+                              }}>
                                   <Trash2 className="h-4 w-4"/>
                               </Button>
                           </CardContent>
