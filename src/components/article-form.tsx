@@ -55,11 +55,16 @@ export function ArticleForm() {
   
   const coverPhotoRef = form.register("coverPhoto");
 
-  const handleCoverPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      form.setValue('coverPhoto', file);
-      setCoverPreview(URL.createObjectURL(file));
+      const preview = await readFileAsDataURL(file);
+      const coverPhotoData = {
+          file: { name: file.name, type: file.type, size: file.size },
+          preview,
+      };
+      form.setValue('coverPhoto', coverPhotoData);
+      setCoverPreview(preview);
     } else {
       form.setValue('coverPhoto', undefined);
       setCoverPreview(null);
@@ -71,16 +76,8 @@ export function ArticleForm() {
     setIsLoading(true);
 
     try {
-      let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      const coverFile = values.coverPhoto as File | undefined;
-
-      if (coverFile instanceof File) {
-          const preview = await readFileAsDataURL(coverFile);
-          coverPhotoData = {
-              file: { name: coverFile.name, type: coverFile.type, size: coverFile.size },
-              preview,
-          };
-      }
+      // The cover photo is already processed into the correct format by handleCoverPhotoChange
+      const coverPhotoData = values.coverPhoto as UploadedFile['coverPhoto'] | undefined;
       
       const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
       const articlePreview = await readFileAsDataURL(articleFile);
@@ -102,7 +99,7 @@ export function ArticleForm() {
         ]
       }
 
-      const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
+      const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
       localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newArticle, ...existingUploads]));
 
       toast({

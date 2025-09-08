@@ -32,7 +32,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
-import type { Upload, UploadedFile } from "@/lib/types";
+import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
@@ -40,7 +40,7 @@ import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
-  coverPhoto: z.any().optional(), // instance of File
+  coverPhoto: z.any().optional(), // can be File or UploadedFile['coverPhoto']
   preview: z.string().optional(), // object URL
 });
 
@@ -101,8 +101,13 @@ export function UploadForm() {
     }
   };
   
-  const handleCoverPhotoChange = (file: File, index: number) => {
-    update(index, { ...fields[index], coverPhoto: file });
+  const handleCoverPhotoChange = async (file: File, index: number) => {
+    const preview = await readFileAsDataURL(file);
+    const coverPhotoData = {
+        file: { name: file.name, type: file.type, size: file.size },
+        preview
+    };
+    update(index, { ...fields[index], coverPhoto: coverPhotoData });
   };
   
   const handleFrameSelect = async (dataUrl: string, index: number) => {
@@ -110,7 +115,8 @@ export function UploadForm() {
     const blob = await response.blob();
     const file = new File([blob], `frame-for-${fields[index].file.name}.jpg`, { type: 'image/jpeg' });
     
-    update(index, { ...fields[index], coverPhoto: file });
+    await handleCoverPhotoChange(file, index);
+
     setThumbnailSelectorOpen(false);
     setVideoForThumbnail(null);
   }
@@ -120,30 +126,24 @@ export function UploadForm() {
     setIsLoading(true);
 
     try {
-        const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]');
+        const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
         const newUploads: Upload[] = [];
 
         const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
             const originalFile = fileWithValue.file as File;
-            const coverPhotoFile = fileWithValue.coverPhoto as File | undefined;
+            
+            const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
+
+            // The cover photo is already processed and in the correct format by handleCoverPhotoChange
+            const coverPhotoData = fileWithValue.coverPhoto as UploadedFile['coverPhoto'] | undefined;
             
             let filePreview: string | undefined = fileWithValue.preview;
-
-            let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-            if (coverPhotoFile) {
-                const coverPreview = await readFileAsDataURL(coverPhotoFile);
-                coverPhotoData = {
-                    file: { name: coverPhotoFile.name, type: coverPhotoFile.type, size: coverPhotoFile.size },
-                    preview: coverPreview
-                };
-            }
-            
             if (getFileType(originalFile) === 'document') {
                 filePreview = await readFileAsDataURL(originalFile);
             }
             
             const fileData: UploadedFile = {
-                file: { name: originalFile.name, type: originalFile.type, size: originalFile.size },
+                file: serializableFile,
                 altText: fileWithValue.altText,
                 preview: filePreview,
                 coverPhoto: coverPhotoData,
@@ -198,7 +198,7 @@ export function UploadForm() {
         });
 
         form.reset();
-        remove();
+        remove(); // This removes all fields from the field array
         router.push('/profile');
 
     } catch (error) {
@@ -215,11 +215,11 @@ export function UploadForm() {
 
   const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
     const file = field.file as File;
-    const coverPhotoFile = field.coverPhoto as File | undefined;
+    const coverPhotoData = field.coverPhoto as UploadedFile['coverPhoto'] | undefined;
     let previewUrl = field.preview; 
 
-    if (coverPhotoFile) {
-        previewUrl = URL.createObjectURL(coverPhotoFile);
+    if (coverPhotoData?.preview) {
+        previewUrl = coverPhotoData.preview;
     }
 
     const fileType = getFileType(file);
@@ -228,13 +228,13 @@ export function UploadForm() {
       return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
     if (fileType === 'video') {
-         if (previewUrl && coverPhotoFile) {
+         if (previewUrl && coverPhotoData) {
             return <Image src={previewUrl} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
         }
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
     }
     if(fileType === 'document') {
-        if (previewUrl && coverPhotoFile) {
+        if (previewUrl && coverPhotoData) {
             return <Image src={previewUrl} alt="Cover preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
         }
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
@@ -322,14 +322,14 @@ export function UploadForm() {
                                       <FormLabel className="sr-only">Cover Photo</FormLabel>
                                       <FormControl>
                                           <Input 
-                                          type="file" 
-                                          accept="image/*" 
-                                          onChange={(e) => {
-                                              if(e.target.files?.[0]) {
-                                                  handleCoverPhotoChange(e.target.files[0], index)
-                                              }
-                                          }}
-                                          className="text-xs file:text-xs file:py-1 file:px-2"
+                                            type="file" 
+                                            accept="image/*" 
+                                            onChange={(e) => {
+                                                if(e.target.files?.[0]) {
+                                                    handleCoverPhotoChange(e.target.files[0], index)
+                                                }
+                                            }}
+                                            className="text-xs file:text-xs file:py-1 file:px-2"
                                           />
                                       </FormControl>
                                       <FormDescription className="text-xs">

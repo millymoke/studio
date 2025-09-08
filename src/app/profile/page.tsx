@@ -41,7 +41,7 @@ const generateMockUploads = (count: number, offset = 0): Upload[] => {
         objectPosition: 'center',
         coverPhoto: hasCover ? {
             file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
-            preview: `https://picsum.photos/1200/800?random=${i + 1}`
+            preview: `https://picsum.photos/1200/800?random=${i + 101}`
         } : undefined
       }],
       displayOption: 'individual'
@@ -172,8 +172,8 @@ export default function ProfilePage() {
         const firstFile = upload.files[0];
         if (!firstFile) return null;
 
-        const coverPhotoSrc = firstFile.coverPhoto?.preview;
-        const previewSrc = firstFile.preview;
+        // Use cover photo if available, otherwise use the main preview
+        const previewSrc = firstFile.coverPhoto?.preview || firstFile.preview;
 
         switch (upload.type) {
             case 'video':
@@ -193,8 +193,8 @@ export default function ProfilePage() {
             case 'document':
                  return (
                      <div className="absolute inset-0 bg-card">
-                        {coverPhotoSrc ? 
-                            <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" /> 
+                        {previewSrc ? 
+                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> 
                             : <div className="w-full h-full bg-muted flex items-center justify-center"><FileText className="w-12 h-12 text-muted-foreground" /></div>
                         }
                         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
@@ -319,7 +319,7 @@ export default function ProfilePage() {
                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
                                    </div>
-                               </ScrollArea>
+                                </ScrollArea>
                            ) : (
                                <div className="w-full flex-grow rounded-b-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
