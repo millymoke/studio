@@ -141,11 +141,14 @@ export function UploadForm() {
                 throw new Error("Invalid file found in form values.");
             }
             const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
+            
+            const fileDataUrl = await readFileAsDataURL(originalFile);
 
             let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-            if (fileWithValue.coverPhoto?.file instanceof File) {
-                const coverFile = fileWithValue.coverPhoto.file;
-                const serializableCoverFile: SerializableFile = {
+            const coverPhotoValue = fileWithValue.coverPhoto;
+            if (coverPhotoValue && coverPhotoValue.file instanceof File) {
+                const coverFile = coverPhotoValue.file;
+                 const serializableCoverFile: SerializableFile = {
                     name: coverFile.name,
                     type: coverFile.type,
                     size: coverFile.size,
@@ -156,13 +159,10 @@ export function UploadForm() {
                 };
             }
 
-            // Always read the original file to get its data URL for storage
-            const fileDataUrl = await readFileAsDataURL(originalFile);
-
             return {
                 file: serializableFile,
                 altText: fileWithValue.altText,
-                preview: fileDataUrl, // Store the data URL
+                preview: fileDataUrl,
                 coverPhoto: coverPhotoData,
                 objectPosition: 'center',
             };
@@ -494,6 +494,8 @@ export function UploadForm() {
   );
 }
     
+    
+
     
 
     
