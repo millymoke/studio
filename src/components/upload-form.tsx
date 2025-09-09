@@ -92,8 +92,6 @@ export function UploadForm() {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
           let preview: string;
-          // For security reasons, browsers don't allow reading file paths.
-          // We use object URLs for image/video previews and data URLs for documents.
           if (getFileType(file) === 'document') {
              preview = await readFileAsDataURL(file);
           } else {
@@ -137,19 +135,19 @@ export function UploadForm() {
 
         const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
             const originalFile = fileWithValue.file as File;
-            
             const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
 
             let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-            if (fileWithValue.coverPhoto?.file && fileWithValue.coverPhoto?.preview) {
-                const serializableCoverFile: SerializableFile = {
-                    name: fileWithValue.coverPhoto.file.name,
-                    type: fileWithValue.coverPhoto.file.type,
-                    size: fileWithValue.coverPhoto.file.size,
+            if (fileWithValue.coverPhoto?.file instanceof File) {
+                const coverFile = fileWithValue.coverPhoto.file;
+                 const serializableCoverFile: SerializableFile = {
+                    name: coverFile.name,
+                    type: coverFile.type,
+                    size: coverFile.size,
                 };
                 coverPhotoData = {
                     file: serializableCoverFile,
-                    preview: fileWithValue.coverPhoto.preview,
+                    preview: await readFileAsDataURL(coverFile),
                 };
             }
             
@@ -163,7 +161,6 @@ export function UploadForm() {
                 objectPosition: 'center',
             };
         };
-
 
         if (values.displayOption === 'individual') {
             for (const file of values.files) {
@@ -484,6 +481,8 @@ export function UploadForm() {
   );
 }
     
+    
+
     
 
     
