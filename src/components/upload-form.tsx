@@ -135,12 +135,15 @@ export function UploadForm() {
 
         const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
             const originalFile = fileWithValue.file as File;
+            if (!(originalFile instanceof File)) {
+                throw new Error("Invalid file found in form values.");
+            }
             const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
 
             let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
             if (fileWithValue.coverPhoto?.file instanceof File) {
                 const coverFile = fileWithValue.coverPhoto.file;
-                 const serializableCoverFile: SerializableFile = {
+                const serializableCoverFile: SerializableFile = {
                     name: coverFile.name,
                     type: coverFile.type,
                     size: coverFile.size,
@@ -150,7 +153,7 @@ export function UploadForm() {
                     preview: await readFileAsDataURL(coverFile),
                 };
             }
-            
+
             const filePreview = await readFileAsDataURL(originalFile);
 
             return {
@@ -163,11 +166,12 @@ export function UploadForm() {
         };
 
         if (values.displayOption === 'individual') {
-            for (const file of values.files) {
-                const fileData = await processFile(file);
+            for (const fileWithValue of values.files) {
+                const fileData = await processFile(fileWithValue);
+                const originalFile = fileWithValue.file as File;
                 const newUpload: Upload = {
-                    id: `${Date.now()}-${file.file.name}`,
-                    type: getFileType(file.file),
+                    id: `${Date.now()}-${originalFile.name}`,
+                    type: getFileType(originalFile),
                     title: values.title,
                     description: values.description || '',
                     tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
@@ -179,10 +183,11 @@ export function UploadForm() {
             }
         } else {
             const processedFiles = await Promise.all(values.files.map(processFile));
+            const firstFile = values.files[0].file as File;
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
-                type: getFileType(values.files[0].file), // Base type on first file
+                type: getFileType(firstFile), // Base type on first file
                 title: values.title,
                 description: values.description || '',
                 tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
@@ -209,7 +214,7 @@ export function UploadForm() {
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
-            description: "There was a problem saving your files.",
+            description: "There was a problem saving your files. Please try again.",
         });
     } finally {
         setIsLoading(false);
@@ -481,6 +486,8 @@ export function UploadForm() {
   );
 }
     
+    
+
     
 
     
