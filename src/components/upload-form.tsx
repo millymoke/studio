@@ -142,6 +142,7 @@ export function UploadForm() {
             }
             const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
             
+            // This is the critical fix: always read the original file, not the preview URL.
             const fileDataUrl = await readFileAsDataURL(originalFile);
 
             let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
@@ -162,7 +163,7 @@ export function UploadForm() {
             return {
                 file: serializableFile,
                 altText: fileWithValue.altText,
-                preview: fileDataUrl,
+                preview: fileDataUrl, // Use the generated data URL
                 coverPhoto: coverPhotoData,
                 objectPosition: 'center',
             };
