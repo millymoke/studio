@@ -92,6 +92,8 @@ export function UploadForm() {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
           let preview: string;
+          // For images and videos, create a temporary blob URL for efficient preview.
+          // For documents, we will need the data URL for embedding.
           if (getFileType(file) === 'document') {
              preview = await readFileAsDataURL(file);
           } else {
@@ -154,12 +156,13 @@ export function UploadForm() {
                 };
             }
 
-            const filePreview = await readFileAsDataURL(originalFile);
+            // Always read the original file to get its data URL for storage
+            const fileDataUrl = await readFileAsDataURL(originalFile);
 
             return {
                 file: serializableFile,
                 altText: fileWithValue.altText,
-                preview: filePreview,
+                preview: fileDataUrl, // Store the data URL
                 coverPhoto: coverPhotoData,
                 objectPosition: 'center',
             };
@@ -206,6 +209,11 @@ export function UploadForm() {
         });
 
         form.reset();
+        fields.forEach(field => {
+            if (field.preview.startsWith('blob:')) {
+                URL.revokeObjectURL(field.preview);
+            }
+        });
         remove();
         router.push('/profile');
 
@@ -486,6 +494,8 @@ export function UploadForm() {
   );
 }
     
+    
+
     
 
     
