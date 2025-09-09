@@ -21,38 +21,6 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
-
-const generateMockUploads = (count: number, offset = 0): Upload[] => {
-  return Array.from({ length: count }).map((_, i) => {
-    const id = `mock-${i + offset}`;
-    const type = i % 3 === 0 ? 'video' : (i % 3 === 1 ? 'article' : 'image');
-    const hasCover = type === 'article' || type === 'document';
-    const firstFile: UploadedFile = {
-        file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
-        preview: `https://picsum.photos/800/1000?random=${i + 1}`,
-        altText: 'An example of beautiful content',
-        objectPosition: 'center',
-    };
-    if (hasCover) {
-        firstFile.coverPhoto = {
-            file: { name: `cover${i}.jpg`, type: 'image/jpeg', size: 4321 },
-            preview: `https://picsum.photos/1200/800?random=${i + 101}`
-        };
-    }
-    return {
-      id,
-      type: type,
-      title: type === 'article' ? `My Awesome Article ${id}` : `Shared Content ${id}`,
-      description: 'A captivating piece of content I wanted to share with the world.',
-      link: 'example.com',
-      tags: ['inspiration', 'design', 'art'],
-      files: [firstFile],
-      displayOption: 'individual'
-    };
-  });
-};
-
-
 export default function ProfilePage() {
     const user = { 
         username: 'Maalai', 
@@ -77,7 +45,7 @@ export default function ProfilePage() {
     useEffect(() => {
         setIsClient(true);
     }, []);
-
+    
     const loadUploadsFromStorage = useCallback(() => {
         if (typeof window === 'undefined') return [];
         const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
@@ -95,29 +63,35 @@ export default function ProfilePage() {
 
     const loadInitialData = useCallback(() => {
         setIsLoading(true);
-        let storedUploads = loadUploadsFromStorage();
-        
-        if (storedUploads.length === 0) {
-            const mockUploads = generateMockUploads(BATCH_SIZE * 2);
-            try {
-                localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(mockUploads));
-                storedUploads = mockUploads;
-            } catch (e) {
-                console.error("Failed to save mock uploads to localStorage", e);
-            }
-        }
-        
+        const storedUploads = loadUploadsFromStorage();
         allUploadsRef.current = storedUploads;
+        
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
-        
-        const mockSavedUploads = generateMockUploads(BATCH_SIZE, 100);
+
+        // For demonstration, saved uploads are still mock.
+        // In a real app, this would come from a different source.
+        const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
+            id: `mock-saved-${i}`,
+            type: 'image' as const,
+            title: `Saved Content ${i}`,
+            description: 'A captivating piece of content I saved.',
+            link: '',
+            tags: ['saved', 'inspiration'],
+            files: [{
+                file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
+                preview: `https://picsum.photos/800/1000?random=${i + 200}`,
+                altText: 'A saved piece of beautiful content',
+                objectPosition: 'center',
+            }],
+            displayOption: 'individual' as const,
+        }));
         setSavedUploads(mockSavedUploads);
 
         setHasMore(allUploadsRef.current.length > BATCH_SIZE);
         setIsLoading(false);
     }, [loadUploadsFromStorage]);
-    
+
     useEffect(() => {
         if (isClient) {
             loadInitialData();
@@ -498,7 +472,9 @@ export default function ProfilePage() {
                                     </TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="uploads">
-                                    {renderGrid(uploads, true)}
+                                    {uploads.length > 0 ? renderGrid(uploads, true) :
+                                        !isLoading && <p className="text-center text-muted-foreground">You haven't uploaded anything yet.</p>
+                                    }
                                 </TabsContent>
                                 <TabsContent value="saved">
                                     {renderGrid(savedUploads, false)}
@@ -526,8 +502,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-    
-    
-
-    
-
