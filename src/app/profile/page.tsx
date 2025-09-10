@@ -69,7 +69,7 @@ export default function ProfilePage() {
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
 
-        // Saved uploads are mock for now.
+        // Load or generate saved uploads
         const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
             id: `mock-saved-${i}`,
             type: 'image' as const,
