@@ -55,7 +55,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const getFileType = (file: File): 'image' | 'video' | 'document' => {
+const getFileType = (file: File | SerializableFile): 'image' | 'video' | 'document' => {
     if (file.type.startsWith('image/')) return 'image';
     if (file.type.startsWith('video/')) return 'video';
     return 'document';
@@ -92,8 +92,6 @@ export function UploadForm() {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
           let preview: string;
-          // For images and videos, create a temporary blob URL for efficient preview.
-          // For other file types, we don't need a live preview.
           if (getFileType(file) === 'document') {
              preview = '';
           } else {
@@ -128,40 +126,47 @@ export function UploadForm() {
   }
 
   const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
-      const originalFile = fileWithValue.file as File;
-      if (!(originalFile instanceof File)) {
-          throw new Error("Invalid file found in form values.");
-      }
-      const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
-      
-      const fileDataUrl = await readFileAsDataURL(originalFile);
+    const originalFile = fileWithValue.file as File;
+    if (!(originalFile instanceof File)) {
+        throw new Error("Invalid file found in form values.");
+    }
 
-      let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      const coverPhotoValue = fileWithValue.coverPhoto;
-      
-      if (coverPhotoValue && coverPhotoValue.file instanceof File) {
-          const coverFile = coverPhotoValue.file;
-           const serializableCoverFile: SerializableFile = {
-              name: coverFile.name,
-              type: coverFile.type,
-              size: coverFile.size,
-          };
-          const coverPreviewDataUrl = await readFileAsDataURL(coverFile);
-          
-          coverPhotoData = {
-              file: serializableCoverFile,
-              preview: coverPreviewDataUrl,
-          };
-      }
+    const serializableFile: SerializableFile = { 
+        name: originalFile.name, 
+        type: originalFile.type, 
+        size: originalFile.size 
+    };
 
-      return {
-          file: serializableFile,
-          altText: fileWithValue.altText,
-          preview: fileDataUrl, // Use the generated data URL
-          coverPhoto: coverPhotoData,
-          objectPosition: 'center',
-      };
-  };
+    // Generate the data URL for the main file.
+    const fileDataUrl = await readFileAsDataURL(originalFile);
+
+    let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
+    const coverPhotoValue = fileWithValue.coverPhoto;
+
+    // Check if a cover photo file exists and process it.
+    if (coverPhotoValue && coverPhotoValue.file instanceof File) {
+        const coverFile = coverPhotoValue.file;
+        const serializableCoverFile: SerializableFile = {
+            name: coverFile.name,
+            type: coverFile.type,
+            size: coverFile.size,
+        };
+        // This was the critical missing piece: we need to await the data URL for the cover photo.
+        const coverPreviewDataUrl = await readFileAsDataURL(coverFile);
+        coverPhotoData = {
+            file: serializableCoverFile,
+            preview: coverPreviewDataUrl,
+        };
+    }
+
+    return {
+        file: serializableFile,
+        altText: fileWithValue.altText,
+        preview: fileDataUrl, // Use the fully resolved data URL.
+        coverPhoto: coverPhotoData,
+        objectPosition: 'center',
+    };
+};
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
@@ -171,6 +176,7 @@ export function UploadForm() {
         const newUploads: Upload[] = [];
 
         if (values.displayOption === 'individual') {
+            // Process each file individually.
             for (const fileWithValue of values.files) {
                 const fileData = await processFile(fileWithValue);
                 const originalFile = fileWithValue.file as File;
@@ -187,6 +193,7 @@ export function UploadForm() {
                 newUploads.push(newUpload);
             }
         } else {
+            // Process all files for a single carousel post.
             const processedFiles = await Promise.all(values.files.map(processFile));
             const firstFile = values.files[0].file as File;
             
@@ -210,13 +217,14 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
+        // Cleanup and navigate
         form.reset();
         fields.forEach(field => {
             if (field.preview && field.preview.startsWith('blob:')) {
                 URL.revokeObjectURL(field.preview);
             }
         });
-        remove();
+        remove(); // This removes all fields from the field array.
         router.push('/profile');
 
     } catch (error) {
@@ -236,7 +244,6 @@ export function UploadForm() {
     const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
     
     const fileType = getFileType(file);
-    // Always use the cover photo preview if it exists
     const previewUrl = coverPhotoData?.preview || (fileType === 'image' ? field.preview : undefined);
 
     if (previewUrl) {
@@ -377,7 +384,7 @@ export function UploadForm() {
                         <DialogDescription>Move the slider to find a frame and set it as the cover photo for your video.</DialogDescription>
                     </DialogHeader>
                     <VideoThumbnailSelector 
-                        videoFile={videoForThumbnail.file} 
+                        videoFile={videoForThumbnail.file} _
                         onFrameSelected={(dataUrl) => handleFrameSelect(dataUrl, videoForThumbnail.index)}
                     />
                 </DialogContent>
@@ -496,5 +503,3 @@ export function UploadForm() {
     </Form>
   );
 }
-
-    
