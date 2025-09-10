@@ -69,8 +69,7 @@ export default function ProfilePage() {
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
 
-        // For demonstration, saved uploads are still mock.
-        // In a real app, this would come from a different source.
+        // Saved uploads are mock for now.
         const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
             id: `mock-saved-${i}`,
             type: 'image' as const,
@@ -95,6 +94,14 @@ export default function ProfilePage() {
     useEffect(() => {
         if (isClient) {
             loadInitialData();
+            // Add a listener to storage to reflect changes from other tabs.
+            const handleStorageChange = (e: StorageEvent) => {
+                if (e.key === UPLOADS_STORAGE_KEY) {
+                    loadInitialData();
+                }
+            };
+            window.addEventListener('storage', handleStorageChange);
+            return () => window.removeEventListener('storage', handleStorageChange);
         }
     }, [isClient, loadInitialData]);
 
@@ -147,49 +154,38 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
-        const previewSrc = firstFile.coverPhoto?.preview || firstFile.preview;
+        const previewSrc = firstFile.coverPhoto?.preview || (upload.type === 'image' ? firstFile.preview : undefined);
 
-        switch (upload.type) {
-            case 'video':
-                 return (
-                    <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        {firstFile.coverPhoto ? 
-                            <Image src={firstFile.coverPhoto.preview} alt={upload.title} fill className="object-cover" /> :
-                            <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-12 h-12 text-muted-foreground" /></div>
-                        }
-                         <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                            <PlayCircle className="w-12 h-12" />
-                            <p className="font-bold mt-2">Video</p>
-                        </div>
-                    </div>
-                );
-            case 'article':
-            case 'document':
-                 return (
-                     <div className="absolute inset-0 bg-card">
-                        {previewSrc ? 
-                            <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> 
-                            : <div className="w-full h-full bg-muted flex items-center justify-center"><FileText className="w-12 h-12 text-muted-foreground" /></div>
-                        }
-                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
-                            <FileText className="w-12 h-12 opacity-80" />
-                            <p className="font-bold mt-2 z-10">{upload.title}</p>
-                        </div>
-                    </div>
-                );
-            case 'image':
-            default:
-                return (
-                     <Image 
-                        src={previewSrc || "https://picsum.photos/800/1000"}
-                        alt={firstFile?.altText || upload.title} 
+        return (
+            <div className="absolute inset-0 bg-muted">
+                {previewSrc ? (
+                    <Image 
+                        src={previewSrc}
+                        alt={upload.title}
                         fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        style={{ objectPosition: firstFile?.objectPosition || 'center' }}
-                        data-ai-hint="fashion outdoor"
+                        className="object-cover"
+                        style={{ objectPosition: firstFile.objectPosition || 'center' }}
                     />
-                );
-        }
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                        {upload.type === 'video' && <PlayCircle className="w-12 h-12 text-muted-foreground" />}
+                        {(upload.type === 'document' || upload.type === 'article') && <FileText className="w-12 h-12 text-muted-foreground" />}
+                    </div>
+                )}
+
+                {upload.type === 'video' && (
+                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
+                        <PlayCircle className="w-12 h-12" />
+                    </div>
+                )}
+                 {(upload.type === 'document' || upload.type === 'article') && !previewSrc && (
+                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
+                        <FileText className="w-12 h-12 opacity-80" />
+                        <p className="font-bold mt-2 z-10">{upload.title}</p>
+                    </div>
+                )}
+            </div>
+        );
     }
     
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
@@ -199,15 +195,14 @@ export default function ProfilePage() {
     
         if (!firstFile) return null;
         
-        const isTextBased = upload.type === 'article' || (upload.type === 'document' && (firstFile.file.type.startsWith('text/') || firstFile.file.type.endsWith('json') || firstFile.file.type.endsWith('xml')));
+        const isTextBased = upload.type === 'article' || (firstFile.file.type.startsWith('text/') || firstFile.file.type.endsWith('json') || firstFile.file.type.endsWith('xml'));
 
         useEffect(() => {
-            if (isTextBased && firstFile.preview && firstFile.preview.startsWith('data:')) {
+            if (isTextBased && firstFile.preview && firstFile.preview.startsWith('data:text/plain')) {
                 setIsLoadingText(true);
                 try {
                     const base64Content = firstFile.preview.split(',')[1];
                     const decodedContent = atob(base64Content);
-                    // Use TextDecoder for robust UTF-8 decoding
                     const textDecoder = new TextDecoder('utf-8');
                     const uint8Array = new Uint8Array(decodedContent.split('').map(char => char.charCodeAt(0)));
                     const utf8Content = textDecoder.decode(uint8Array);
@@ -250,12 +245,11 @@ export default function ProfilePage() {
     
         switch (upload.type) {
             case 'video':
-                const videoFile = upload.files.find(f => f.file.type.startsWith('video/')) || firstFile;
                 return (
                     <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
-                        {videoFile?.preview ? (
+                        {firstFile.preview ? (
                              <video
-                                src={videoFile.preview}
+                                src={firstFile.preview}
                                 controls
                                 autoPlay
                                 poster={coverPhotoSrc}
@@ -291,7 +285,7 @@ export default function ProfilePage() {
                           
                            {isPdf && firstFile.preview ? (
                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                           ) : (isTextBased && firstFile.preview) ? (
+                           ) : isTextBased ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -310,11 +304,10 @@ export default function ProfilePage() {
             }
             case 'image':
             default:
-                 const previewSrcDefault = firstFile.preview;
                 return (
                     <div className="flex items-center justify-center h-full">
                         <Image
-                            src={previewSrcDefault || "https://picsum.photos/800/1000"}
+                            src={firstFile.preview || "https://picsum.photos/800/1000"}
                             alt={firstFile.altText || upload.title}
                             width={800}
                             height={1000}
@@ -472,9 +465,10 @@ export default function ProfilePage() {
                                     </TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="uploads">
-                                    {uploads.length > 0 ? renderGrid(uploads, true) :
-                                        !isLoading && <p className="text-center text-muted-foreground">You haven't uploaded anything yet.</p>
-                                    }
+                                    {isClient && !isLoading && uploads.length === 0 && (
+                                        <p className="text-center text-muted-foreground">You haven't uploaded anything yet.</p>
+                                    )}
+                                    {renderGrid(uploads, true)}
                                 </TabsContent>
                                 <TabsContent value="saved">
                                     {renderGrid(savedUploads, false)}
@@ -502,3 +496,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    

@@ -93,9 +93,9 @@ export function UploadForm() {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
           let preview: string;
           // For images and videos, create a temporary blob URL for efficient preview.
-          // For documents, we will need the data URL for embedding.
+          // For other file types, we don't need a live preview.
           if (getFileType(file) === 'document') {
-             preview = await readFileAsDataURL(file);
+             preview = '';
           } else {
              preview = URL.createObjectURL(file);
           }
@@ -127,6 +127,46 @@ export function UploadForm() {
     setVideoForThumbnail(null);
   }
 
+  const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
+      const originalFile = fileWithValue.file as File;
+      if (!(originalFile instanceof File)) {
+          throw new Error("Invalid file found in form values.");
+      }
+      const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
+      
+      const fileDataUrl = await readFileAsDataURL(originalFile);
+
+      let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
+      const coverPhotoValue = fileWithValue.coverPhoto;
+      
+      if (coverPhotoValue && coverPhotoValue.file instanceof File) {
+          const coverFile = coverPhotoValue.file;
+           const serializableCoverFile: SerializableFile = {
+              name: coverFile.name,
+              type: coverFile.type,
+              size: coverFile.size,
+          };
+          // Use the preview which is already a data URL.
+          const coverPreviewDataUrl = coverPhotoValue.preview;
+          
+          if (!coverPreviewDataUrl || !coverPreviewDataUrl.startsWith('data:')) {
+            throw new Error(`Invalid cover photo preview format for ${coverFile.name}`);
+          }
+
+          coverPhotoData = {
+              file: serializableCoverFile,
+              preview: coverPreviewDataUrl,
+          };
+      }
+
+      return {
+          file: serializableFile,
+          altText: fileWithValue.altText,
+          preview: fileDataUrl, // Use the generated data URL
+          coverPhoto: coverPhotoData,
+          objectPosition: 'center',
+      };
+  };
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
@@ -134,45 +174,6 @@ export function UploadForm() {
     try {
         const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
         const newUploads: Upload[] = [];
-
-        const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
-            const originalFile = fileWithValue.file as File;
-            if (!(originalFile instanceof File)) {
-                throw new Error("Invalid file found in form values.");
-            }
-            const serializableFile: SerializableFile = { name: originalFile.name, type: originalFile.type, size: originalFile.size };
-            
-            const fileDataUrl = await readFileAsDataURL(originalFile);
-
-            let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-            const coverPhotoValue = fileWithValue.coverPhoto;
-            
-            if (coverPhotoValue && coverPhotoValue.file instanceof File) {
-                const coverFile = coverPhotoValue.file;
-                 const serializableCoverFile: SerializableFile = {
-                    name: coverFile.name,
-                    type: coverFile.type,
-                    size: coverFile.size,
-                };
-                // Use the preview which is already a data URL, or generate one if needed.
-                const coverPreviewDataUrl = coverPhotoValue.preview.startsWith('data:') 
-                    ? coverPhotoValue.preview 
-                    : await readFileAsDataURL(coverFile);
-
-                coverPhotoData = {
-                    file: serializableCoverFile,
-                    preview: coverPreviewDataUrl,
-                };
-            }
-
-            return {
-                file: serializableFile,
-                altText: fileWithValue.altText,
-                preview: fileDataUrl, // Use the generated data URL
-                coverPhoto: coverPhotoData,
-                objectPosition: 'center',
-            };
-        };
 
         if (values.displayOption === 'individual') {
             for (const fileWithValue of values.files) {
@@ -216,7 +217,7 @@ export function UploadForm() {
 
         form.reset();
         fields.forEach(field => {
-            if (field.preview.startsWith('blob:')) {
+            if (field.preview && field.preview.startsWith('blob:')) {
                 URL.revokeObjectURL(field.preview);
             }
         });
@@ -240,7 +241,8 @@ export function UploadForm() {
     const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
     
     const fileType = getFileType(file);
-    const previewUrl = fileType === 'image' ? field.preview : coverPhotoData?.preview;
+    // Always use the cover photo preview if it exists
+    const previewUrl = coverPhotoData?.preview || (fileType === 'image' ? field.preview : undefined);
 
     if (previewUrl) {
         return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
@@ -513,5 +515,7 @@ export function UploadForm() {
     
 
 
+
+    
 
     
