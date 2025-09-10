@@ -146,13 +146,8 @@ export function UploadForm() {
               type: coverFile.type,
               size: coverFile.size,
           };
-          // Use the preview which is already a data URL.
-          const coverPreviewDataUrl = coverPhotoValue.preview;
+          const coverPreviewDataUrl = await readFileAsDataURL(coverFile);
           
-          if (!coverPreviewDataUrl || !coverPreviewDataUrl.startsWith('data:')) {
-            throw new Error(`Invalid cover photo preview format for ${coverFile.name}`);
-          }
-
           coverPhotoData = {
               file: serializableCoverFile,
               preview: coverPreviewDataUrl,
@@ -501,21 +496,5 @@ export function UploadForm() {
     </Form>
   );
 }
-    
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-
-    
 
     
