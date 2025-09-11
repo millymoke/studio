@@ -93,7 +93,7 @@ export function UploadForm() {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
           let preview: string;
           if (getFileType(file) === 'document') {
-             preview = '';
+             preview = ''; // No blob preview for documents initially
           } else {
              preview = URL.createObjectURL(file);
           }
@@ -137,6 +137,7 @@ export function UploadForm() {
         size: originalFile.size 
     };
 
+    // Always read the original file to get the data URL for storage
     const fileDataUrl = await readFileAsDataURL(originalFile);
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
@@ -149,17 +150,17 @@ export function UploadForm() {
             type: coverFile.type,
             size: coverFile.size,
         };
-        const coverPreviewDataUrl = await readFileAsDataURL(coverFile);
+        // The preview is already a data URL from handleCoverPhotoChange, so we can use it directly
         coverPhotoData = {
             file: serializableCoverFile,
-            preview: coverPreviewDataUrl,
+            preview: coverPhotoValue.preview,
         };
     }
 
     return {
         file: serializableFile,
         altText: fileWithValue.altText,
-        preview: fileDataUrl,
+        preview: fileDataUrl, // The storable data URL of the main file
         coverPhoto: coverPhotoData,
         objectPosition: 'center',
     };
@@ -173,6 +174,7 @@ export function UploadForm() {
         const newUploads: Upload[] = [];
 
         if (values.displayOption === 'individual') {
+            // Process each file into a separate upload post
             for (const fileWithValue of values.files) {
                 const fileData = await processFile(fileWithValue);
                 const originalFile = fileWithValue.file as File;
@@ -189,12 +191,13 @@ export function UploadForm() {
                 newUploads.push(newUpload);
             }
         } else {
+            // Process all files into a single carousel post
             const processedFiles = await Promise.all(values.files.map(processFile));
             const firstFile = values.files[0].file as File;
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
-                type: getFileType(firstFile),
+                type: getFileType(firstFile), // Base type on the first file
                 title: values.title,
                 description: values.description || '',
                 tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
@@ -212,13 +215,14 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
+        // Clean up blob URLs after submission
         fields.forEach(field => {
             if (field.preview && field.preview.startsWith('blob:')) {
                 URL.revokeObjectURL(field.preview);
             }
         });
         form.reset();
-        remove(); 
+        remove(); // Clear the file array in the form state
         router.push('/profile');
 
     } catch (error) {
@@ -238,10 +242,12 @@ export function UploadForm() {
     const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
     
     const fileType = getFileType(file);
-    const previewUrl = coverPhotoData?.preview || (fileType === 'image' ? field.preview : undefined);
+    
+    // For the UI preview, use the cover photo if it exists. Otherwise, use the blob preview for images.
+    const previewSrc = coverPhotoData?.preview || (fileType === 'image' ? field.preview : undefined);
 
-    if (previewUrl) {
-        return <Image src={previewUrl} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+    if (previewSrc) {
+        return <Image src={previewSrc} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
     if (fileType === 'video') {
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
@@ -249,6 +255,7 @@ export function UploadForm() {
     if(fileType === 'document') {
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }
+    // Fallback for any other case
     return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
   }
 
@@ -498,4 +505,5 @@ export function UploadForm() {
   );
 }
 
+    
     
