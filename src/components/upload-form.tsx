@@ -137,13 +137,11 @@ export function UploadForm() {
         size: originalFile.size 
     };
 
-    // Generate the data URL for the main file.
     const fileDataUrl = await readFileAsDataURL(originalFile);
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
     const coverPhotoValue = fileWithValue.coverPhoto;
 
-    // Check if a cover photo file exists and process it.
     if (coverPhotoValue && coverPhotoValue.file instanceof File) {
         const coverFile = coverPhotoValue.file;
         const serializableCoverFile: SerializableFile = {
@@ -151,7 +149,6 @@ export function UploadForm() {
             type: coverFile.type,
             size: coverFile.size,
         };
-        // This was the critical missing piece: we need to await the data URL for the cover photo.
         const coverPreviewDataUrl = await readFileAsDataURL(coverFile);
         coverPhotoData = {
             file: serializableCoverFile,
@@ -162,7 +159,7 @@ export function UploadForm() {
     return {
         file: serializableFile,
         altText: fileWithValue.altText,
-        preview: fileDataUrl, // Use the fully resolved data URL.
+        preview: fileDataUrl,
         coverPhoto: coverPhotoData,
         objectPosition: 'center',
     };
@@ -176,7 +173,6 @@ export function UploadForm() {
         const newUploads: Upload[] = [];
 
         if (values.displayOption === 'individual') {
-            // Process each file individually.
             for (const fileWithValue of values.files) {
                 const fileData = await processFile(fileWithValue);
                 const originalFile = fileWithValue.file as File;
@@ -193,13 +189,12 @@ export function UploadForm() {
                 newUploads.push(newUpload);
             }
         } else {
-            // Process all files for a single carousel post.
             const processedFiles = await Promise.all(values.files.map(processFile));
             const firstFile = values.files[0].file as File;
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
-                type: getFileType(firstFile), // Base type on first file
+                type: getFileType(firstFile),
                 title: values.title,
                 description: values.description || '',
                 tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
@@ -217,14 +212,13 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
 
-        // Cleanup and navigate
-        form.reset();
         fields.forEach(field => {
             if (field.preview && field.preview.startsWith('blob:')) {
                 URL.revokeObjectURL(field.preview);
             }
         });
-        remove(); // This removes all fields from the field array.
+        form.reset();
+        remove(); 
         router.push('/profile');
 
     } catch (error) {
@@ -384,7 +378,7 @@ export function UploadForm() {
                         <DialogDescription>Move the slider to find a frame and set it as the cover photo for your video.</DialogDescription>
                     </DialogHeader>
                     <VideoThumbnailSelector 
-                        videoFile={videoForThumbnail.file} _
+                        videoFile={videoForThumbnail.file}
                         onFrameSelected={(dataUrl) => handleFrameSelect(dataUrl, videoForThumbnail.index)}
                     />
                 </DialogContent>
@@ -503,3 +497,5 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    
