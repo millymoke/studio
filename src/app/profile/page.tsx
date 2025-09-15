@@ -222,20 +222,22 @@ export default function ProfilePage() {
         const isArticle = upload.type === 'article';
     
         useEffect(() => {
-            const isTextBased = isArticle || isTextFile;
-            if (isTextBased && firstFile?.preview) {
+            const shouldFetchText = (isArticle || isTextFile) && firstFile?.preview;
+            if (shouldFetchText) {
                 setIsLoadingText(true);
                 const fetchContent = async () => {
                     try {
                         let content = '';
+                        // Handles base64 data URLs for text, created by article form
                         if (firstFile.preview.startsWith('data:text/plain')) {
                             const base64Content = firstFile.preview.split(',')[1];
                             content = atob(base64Content);
                         } else if (firstFile.preview.startsWith('blob:')) {
+                            // Handles blob URLs created for uploaded text files
                             const response = await fetch(firstFile.preview);
                             content = await response.text();
                         } else {
-                            content = "Unsupported text format.";
+                            content = "Unsupported text preview format.";
                         }
                         setTextContent(content);
                     } catch (e) {
@@ -296,13 +298,13 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const canPreviewText = isArticle || isTextFile;
-                const canPreviewPdf = isPdf;
-                const canPreview = (canPreviewText || canPreviewPdf) && firstFile.preview;
+                const canPreviewText = (isArticle || isTextFile) && firstFile.preview;
+                const canPreviewPdf = isPdf && firstFile.preview;
+                const canPreview = canPreviewText || canPreviewPdf;
 
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
-                       {coverPhotoSrc && !isPdf && (
+                       {coverPhotoSrc && !canPreviewPdf && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
                            </div>
@@ -326,7 +328,7 @@ export default function ProfilePage() {
                                        <div className="flex-grow w-full h-full">
                                            <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                                        </div>
-                                   ) : (
+                                   ) : ( // canPreviewText is true here
                                        <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                            <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
                                                {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
