@@ -33,7 +33,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
-import { readFileAsDataURL, generateFilePreview } from "@/lib/utils";
+import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 
@@ -91,7 +91,8 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          const preview = await generateFilePreview(file);
+          // For videos, create a blob URL, for others, a data URL.
+          const preview = file.type.startsWith('video/') ? URL.createObjectURL(file) : await readFileAsDataURL(file);
           return {
               file: file,
               altText: '',
@@ -159,12 +160,9 @@ export function UploadForm() {
         };
     }
 
-    let finalPreview: string;
-    if (fileType === 'video') {
-        finalPreview = fileWithValue.preview; // Keep blob URL for videos
-    } else {
-        finalPreview = await readFileAsDataURL(originalFile); // Convert images/docs to data URL
-    }
+    // For videos, the preview is a blob URL and doesn't need conversion.
+    // For other types, it's already a data URL from the handleFileChange step.
+    const finalPreview = fileWithValue.preview;
 
     return {
         file: serializableFile,
@@ -509,5 +507,3 @@ export function UploadForm() {
     </Form>
   );
 }
-
-    

@@ -39,16 +39,11 @@ export default function ProfilePage() {
     const [viewingUpload, setViewingUpload] = useState<Upload | null>(null);
     const [isClient, setIsClient] = useState(false);
     const allUploadsRef = useRef<Upload[]>([]);
-    const blobUrlsRef = useRef<string[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
 
     useEffect(() => {
         setIsClient(true);
-        return () => {
-             // Revoke all created blob URLs to prevent memory leaks
-             blobUrlsRef.current.forEach(URL.revokeObjectURL);
-        }
     }, []);
     
     const loadUploadsFromStorage = useCallback(() => {
@@ -57,12 +52,7 @@ export default function ProfilePage() {
         if (storedUploads) {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
-                if (Array.isArray(parsed)) {
-                    // Track blob URLs so we can revoke them on cleanup
-                    const blobUrls = parsed.flatMap(u => u.files.map(f => f.preview)).filter(p => p.startsWith('blob:'));
-                    blobUrlsRef.current = blobUrls;
-                    return parsed;
-                }
+                if (Array.isArray(parsed)) return parsed;
                 return [];
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
@@ -218,10 +208,7 @@ export default function ProfilePage() {
                 try {
                     const base64Content = firstFile.preview.split(',')[1];
                     const decodedContent = atob(base64Content);
-                    const textDecoder = new TextDecoder('utf-8');
-                    const uint8Array = new Uint8Array(decodedContent.split('').map(char => char.charCodeAt(0)));
-                    const utf8Content = textDecoder.decode(uint8Array);
-                    setTextContent(utf8Content);
+                    setTextContent(decodedContent);
                 } catch (e) {
                     console.error("Failed to decode text content", e);
                     setTextContent("Could not load content.");
@@ -514,5 +501,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    

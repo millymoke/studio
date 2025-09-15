@@ -89,8 +89,18 @@ export function OneTimeLinkForm() {
         if (!selected || !selected.files[0]?.preview) {
              throw new Error("Selected upload not found or is invalid.");
         }
-        // The preview is already a data URI
-        fileDataUri = selected.files[0].preview;
+        
+        // If it's a blob URL, we need to fetch and convert it to a data URL for the AI flow.
+        if (selected.files[0].preview.startsWith('blob:')) {
+            const response = await fetch(selected.files[0].preview);
+            const blob = await response.blob();
+            const tempFile = new File([blob], selected.files[0].file.name, { type: selected.files[0].file.type });
+            fileDataUri = await readFileAsDataURL(tempFile);
+        } else {
+            // It's already a data URL
+            fileDataUri = selected.files[0].preview;
+        }
+
       } else {
         form.setError('file', { message: 'Please select or upload a file.' });
         throw new Error("No file provided.");
