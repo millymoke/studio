@@ -217,44 +217,42 @@ export default function ProfilePage() {
         const [isLoadingText, setIsLoadingText] = useState(false);
         const firstFile = upload.files?.[0];
     
-        if (!firstFile) return null;
-        
-        const isPdf = firstFile.file.type === 'application/pdf';
-        const isTextFile = firstFile.file.type.startsWith('text/');
-        const isTextBased = upload.type === 'article' || isTextFile;
-
+        const isPdf = firstFile?.file.type === 'application/pdf';
+        const isTextFile = firstFile?.file.type.startsWith('text/');
+        const isArticle = upload.type === 'article';
+    
         useEffect(() => {
-            if (isTextBased && firstFile.preview) {
+            const isTextBased = isArticle || isTextFile;
+            if (isTextBased && firstFile?.preview) {
                 setIsLoadingText(true);
-                if (firstFile.preview.startsWith('data:text/plain')) {
+                const fetchContent = async () => {
                     try {
-                        const base64Content = firstFile.preview.split(',')[1];
-                        const decodedContent = atob(base64Content);
-                        setTextContent(decodedContent);
+                        let content = '';
+                        if (firstFile.preview.startsWith('data:text/plain')) {
+                            const base64Content = firstFile.preview.split(',')[1];
+                            content = atob(base64Content);
+                        } else if (firstFile.preview.startsWith('blob:')) {
+                            const response = await fetch(firstFile.preview);
+                            content = await response.text();
+                        } else {
+                            content = "Unsupported text format.";
+                        }
+                        setTextContent(content);
                     } catch (e) {
-                        console.error("Failed to decode text content", e);
+                        console.error("Failed to decode or fetch content", e);
                         setTextContent("Could not load content.");
                     } finally {
                         setIsLoadingText(false);
                     }
-                } else if (firstFile.preview.startsWith('blob:')) {
-                    fetch(firstFile.preview)
-                        .then(res => res.text())
-                        .then(text => setTextContent(text))
-                        .catch(e => {
-                            console.error("Failed to fetch blob content", e);
-                            setTextContent("Could not load content.");
-                        })
-                        .finally(() => setIsLoadingText(false));
-                } else {
-                     setTextContent("Unsupported text format.");
-                     setIsLoadingText(false);
-                }
+                };
+                fetchContent();
             } else {
                 setTextContent(null);
             }
-        }, [isTextBased, firstFile.preview]);
+        }, [isArticle, isTextFile, firstFile]);
     
+        if (!firstFile) return null;
+        
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
                 <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
@@ -298,6 +296,10 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
+                const canPreviewText = isArticle || isTextFile;
+                const canPreviewPdf = isPdf;
+                const canPreview = (canPreviewText || canPreviewPdf) && firstFile.preview;
+
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
                        {coverPhotoSrc && !isPdf && (
@@ -318,16 +320,20 @@ export default function ProfilePage() {
                                )}
                            </div>
                           
-                           {isPdf && firstFile.preview ? (
-                               <div className="flex-grow w-full h-full">
-                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                               </div>
-                           ) : isTextBased ? (
-                                <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                                    <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
-                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
-                                   </div>
-                                </ScrollArea>
+                           {canPreview ? (
+                               <>
+                                   {canPreviewPdf ? (
+                                       <div className="flex-grow w-full h-full">
+                                           <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                                       </div>
+                                   ) : (
+                                       <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                                           <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                                               {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
+                                           </div>
+                                       </ScrollArea>
+                                   )}
+                               </>
                            ) : (
                                <div className="w-full flex-grow rounded-b-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
