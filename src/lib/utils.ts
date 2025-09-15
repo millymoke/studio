@@ -14,3 +14,5 @@ export function readFileAsDataURL(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+    

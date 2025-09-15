@@ -91,7 +91,7 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          // For videos, create a blob URL, for others, a data URL.
+          // For videos, create a blob URL to avoid storage quota issues. For others, a data URL.
           const preview = file.type.startsWith('video/') ? URL.createObjectURL(file) : await readFileAsDataURL(file);
           return {
               file: file,
@@ -114,8 +114,7 @@ export function UploadForm() {
     const blob = await response.blob();
     const file = new File([blob], `frame-for-${fields[index].file.name}.jpg`, { type: 'image/jpeg' });
     
-    const preview = await readFileAsDataURL(file);
-    update(index, { ...fields[index], coverPhoto: { file, preview }});
+    update(index, { ...fields[index], coverPhoto: { file, preview: dataUrl }});
 
     setThumbnailSelectorOpen(false);
     setVideoForThumbnail(null);
@@ -123,8 +122,7 @@ export function UploadForm() {
 
   const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
     const originalFile = fileWithValue.file as File;
-    const fileType = getFileType(originalFile);
-
+    
     const serializableFile: SerializableFile = { 
         name: originalFile.name, 
         type: originalFile.type, 
@@ -143,11 +141,11 @@ export function UploadForm() {
             file: serializableCoverFile,
             preview: await readFileAsDataURL(coverFile),
         };
-    } else if (fileWithValue.coverPhoto) {
+    } else if (fileWithValue.coverPhoto?.preview) {
         // Handle case where cover photo was selected from video frame (already a data URL)
-        const response = await fetch(fileWithValue.coverPhoto.preview);
-        const blob = await response.blob();
-        const file = new File([blob], "frame.jpg", { type: blob.type });
+         const response = await fetch(fileWithValue.coverPhoto.preview);
+         const blob = await response.blob();
+         const file = new File([blob], "frame.jpg", { type: blob.type });
 
          const serializableCoverFile: SerializableFile = {
             name: file.name,
@@ -160,9 +158,17 @@ export function UploadForm() {
         };
     }
 
-    // For videos, the preview is a blob URL and doesn't need conversion.
-    // For other types, it's already a data URL from the handleFileChange step.
-    const finalPreview = fileWithValue.preview;
+    // For videos, the preview is a blob URL. For other types, it should be a data URL.
+    // If it's a blob URL that isn't for a video (which shouldn't happen with current logic, but as a safeguard),
+    // convert it to a data URL. Videos must stay as blob URLs to avoid quota issues.
+    let finalPreview = fileWithValue.preview;
+    const fileType = getFileType(originalFile);
+
+    if (fileType !== 'video' && finalPreview.startsWith('blob:')) {
+        const response = await fetch(finalPreview);
+        const blob = await response.blob();
+        finalPreview = await readFileAsDataURL(new File([blob], originalFile.name, {type: originalFile.type}));
+    }
 
     return {
         file: serializableFile,
@@ -228,7 +234,7 @@ export function UploadForm() {
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
-            description: "There was a problem saving your files. Please try again.",
+            description: error instanceof Error ? error.message : "There was a problem saving your files. Please try again.",
         });
     } finally {
         setIsLoading(false);
@@ -507,3 +513,5 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    

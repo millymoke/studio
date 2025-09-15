@@ -41,9 +41,14 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
+    const blobUrls = useRef<string[]>([]);
 
     useEffect(() => {
         setIsClient(true);
+        // Clean up blob URLs on unmount
+        return () => {
+            blobUrls.current.forEach(url => URL.revokeObjectURL(url));
+        };
     }, []);
     
     const loadUploadsFromStorage = useCallback(() => {
@@ -52,7 +57,19 @@ export default function ProfilePage() {
         if (storedUploads) {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
-                if (Array.isArray(parsed)) return parsed;
+                if (Array.isArray(parsed)) {
+                    // Track which previews are blob URLs for later cleanup
+                    blobUrls.current.forEach(url => URL.revokeObjectURL(url));
+                    blobUrls.current = [];
+                    parsed.forEach(upload => {
+                        upload.files.forEach(file => {
+                            if (file.preview.startsWith('blob:')) {
+                                blobUrls.current.push(file.preview);
+                            }
+                        })
+                    })
+                    return parsed;
+                }
                 return [];
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
@@ -501,3 +518,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
