@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Copy, FileWarning, Loader2, Upload as UploadIcon, Library, File as FileIcon, PlayCircle, Check } from "lucide-react";
 import Image from "next/image";
+import { readFileAsDataURL } from "@/lib/utils";
 
 const formSchema = z.object({
   file: z.any().optional(),
@@ -72,32 +73,26 @@ export function OneTimeLinkForm() {
   
   const fileRef = form.register("file");
 
-  const readFileAsDataURI = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
-  };
-
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
     setGeneratedLink(null);
 
     try {
       let fileDataUri: string;
+      let file: File | undefined;
 
       if (activeTab === "upload" && values.file && values.file.length > 0) {
-        const file = values.file[0] as File;
-        fileDataUri = await readFileAsDataURI(file);
+        file = values.file[0] as File;
+        fileDataUri = await readFileAsDataURL(file);
       } else if (activeTab === "select" && values.selectedUpload) {
         const selected = userUploads.find(u => u.id === values.selectedUpload);
         if (!selected || !selected.files[0]?.preview) {
              throw new Error("Selected upload not found or is invalid.");
         }
+        // The preview is already a data URI
         fileDataUri = selected.files[0].preview;
       } else {
+        form.setError('file', { message: 'Please select or upload a file.' });
         throw new Error("No file provided.");
       }
 
@@ -200,18 +195,17 @@ export function OneTimeLinkForm() {
                 <FormField
                   control={form.control}
                   name="selectedUpload"
-                  render={() => (
+                  render={({ field }) => (
                     <FormItem>
                         <FormLabel>Your Uploads</FormLabel>
                         <FormDescription>Select an existing file from your profile to share.</FormDescription>
-                        <FormMessage />
                         {userUploads.length > 0 ? (
                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-64 overflow-y-auto pt-2 pr-2">
                             {userUploads.map(upload => (
                                 <Card 
                                     key={upload.id} 
                                     className={`cursor-pointer transition-all ${selectedUploadId === upload.id ? 'ring-2 ring-primary' : 'hover:border-primary'}`}
-                                    onClick={() => form.setValue('selectedUpload', upload.id, { shouldValidate: true })}
+                                    onClick={() => field.onChange(upload.id)}
                                 >
                                     <CardContent className="p-0 aspect-[4/5] relative">
                                         {renderUploadPreview(upload)}
@@ -230,6 +224,7 @@ export function OneTimeLinkForm() {
                         ) : (
                             <p className="text-sm text-muted-foreground pt-2">You have no uploads to select from.</p>
                         )}
+                         <FormMessage />
                     </FormItem>
                   )}
                 />

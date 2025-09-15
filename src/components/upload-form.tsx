@@ -40,8 +40,8 @@ import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
-  coverPhoto: z.any().optional(), // { file: File, preview: string }
-  preview: z.string(), // object URL or data URL
+  coverPhoto: z.object({ file: z.any(), preview: z.string() }).optional(),
+  preview: z.string(), // data URL
 });
 
 const formSchema = z.object({
@@ -91,13 +91,7 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          let preview: string;
-          if (getFileType(file) === 'image' || getFileType(file) === 'video') {
-             preview = URL.createObjectURL(file);
-          } else {
-             preview = ''; // No blob preview for documents initially
-          }
-          
+          const preview = await readFileAsDataURL(file);
           return {
               file: file,
               altText: '',
@@ -119,7 +113,8 @@ export function UploadForm() {
     const blob = await response.blob();
     const file = new File([blob], `frame-for-${fields[index].file.name}.jpg`, { type: 'image/jpeg' });
     
-    await handleCoverPhotoChange(file, index);
+    const preview = await readFileAsDataURL(file);
+    update(index, { ...fields[index], coverPhoto: { file, preview }});
 
     setThumbnailSelectorOpen(false);
     setVideoForThumbnail(null);
@@ -134,8 +129,6 @@ export function UploadForm() {
         size: originalFile.size 
     };
 
-    const fileDataUrl = await readFileAsDataURL(originalFile);
-
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
     const coverPhotoValue = fileWithValue.coverPhoto;
 
@@ -146,32 +139,17 @@ export function UploadForm() {
             type: coverFile.type,
             size: coverFile.size,
         };
-        const coverPhotoDataUrl = await readFileAsDataURL(coverFile);
-        coverPhotoData = {
-            file: serializableCoverFile,
-            preview: coverPhotoDataUrl,
-        };
-    } else if (coverPhotoValue && typeof coverPhotoValue.preview === 'string') {
-        // Handle case where cover photo comes from video frame (already a data URL)
-        const response = await fetch(coverPhotoValue.preview);
-        const blob = await response.blob();
-        const coverFile = new File([blob], "video-frame.jpg", { type: "image/jpeg" });
-        const serializableCoverFile: SerializableFile = {
-            name: coverFile.name,
-            type: coverFile.type,
-            size: coverFile.size,
-        };
+        // The preview is already a data URL from the form state
         coverPhotoData = {
             file: serializableCoverFile,
             preview: coverPhotoValue.preview,
         };
     }
 
-
     return {
         file: serializableFile,
         altText: fileWithValue.altText,
-        preview: fileDataUrl,
+        preview: fileWithValue.preview, // The data URL from form state
         coverPhoto: coverPhotoData,
         objectPosition: 'center',
     };
@@ -225,13 +203,6 @@ export function UploadForm() {
           title: "Files Uploaded!",
           description: "Your files have been successfully uploaded.",
         });
-
-        // Clean up blob URLs after submission
-        fields.forEach(field => {
-            if (field.preview && field.preview.startsWith('blob:')) {
-                URL.revokeObjectURL(field.preview);
-            }
-        });
         form.reset();
         remove(); // Clear the file array in the form state
         router.push('/profile');
@@ -250,11 +221,10 @@ export function UploadForm() {
 
   const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
     const file = field.file as File;
-    const coverPhotoData = field.coverPhoto as {file:File, preview:string} | undefined;
+    const coverPhotoData = field.coverPhoto;
     
     const fileType = getFileType(file);
     
-    // For the UI preview, use the cover photo if it exists. Otherwise, use the blob preview for images.
     const previewSrc = coverPhotoData?.preview || (fileType === 'image' ? field.preview : undefined);
 
     if (previewSrc) {
@@ -266,7 +236,6 @@ export function UploadForm() {
     if(fileType === 'document') {
         return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }
-    // Fallback for any other case
     return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
   }
 
@@ -367,13 +336,7 @@ export function UploadForm() {
                                   </FormItem>
                               )}
                               </div>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => {
-                                  const fieldPreview = fields[index].preview;
-                                  if (fieldPreview && fieldPreview.startsWith('blob:')) {
-                                      URL.revokeObjectURL(fieldPreview);
-                                  }
-                                  remove(index);
-                              }}>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                                   <Trash2 className="h-4 w-4"/>
                               </Button>
                           </CardContent>

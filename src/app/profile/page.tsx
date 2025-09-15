@@ -88,8 +88,8 @@ export default function ProfilePage() {
             }));
             setSavedUploads(mockSavedUploads);
         } else {
-            // If there are uploads, perhaps filter some as "saved" or have a separate mechanism
-            // For now, we'll just show an empty saved tab if real uploads exist
+            // If there are real uploads, we assume no saved uploads for now
+            // or a more complex logic would be needed to differentiate.
             setSavedUploads([]);
         }
 
@@ -478,6 +478,9 @@ export default function ProfilePage() {
                                     {renderGrid(uploads, true)}
                                 </TabsContent>
                                 <TabsContent value="saved">
+                                    {isClient && !isLoading && savedUploads.length === 0 && (
+                                        <p className="text-center text-muted-foreground">You haven't saved anything yet.</p>
+                                    )}
                                     {renderGrid(savedUploads, false)}
                                 </TabsContent>
                             </Tabs>
