@@ -116,7 +116,7 @@ export function SignupForm() {
         console.log(values);
         toast({
             title: "Account Created",
-            description: "Welcome to ShareSpace! Please sign in.",
+            description: "Welcome to Media Hub! Please sign in.",
         });
         setIsLoading(false);
     }

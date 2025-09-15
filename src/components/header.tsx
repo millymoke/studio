@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -96,7 +95,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 flex h-16 items-center">
         <Link href="/" className="mr-auto flex items-center gap-2">
-          <h1 className="text-2xl font-bold font-headline text-primary">ShareSpace</h1>
+          <h1 className="text-2xl font-bold font-headline text-primary">Media Hub</h1>
         </Link>
         
         {isMobile ? (

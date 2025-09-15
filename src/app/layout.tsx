@@ -1,10 +1,12 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'ShareSpace',
+  title: 'Media Hub',
   description: 'Share Without Limits',
+  icons: [],
 };
 
 export default function RootLayout({

@@ -11,7 +11,7 @@ export default function SignupPage() {
       <main className="flex-1 flex items-center justify-center py-12 px-4">
           <div className="w-full max-w-md space-y-6">
             <div className="text-center">
-                <h1 className="text-3xl font-bold tracking-tight">Create your ShareSpace Account</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Create your Media Hub Account</h1>
                 <p className="text-muted-foreground mt-2">
                     Already have an account?{' '}
                     <Button variant="link" asChild className="p-0">
