@@ -220,10 +220,10 @@ export default function ProfilePage() {
         if (!firstFile) return null;
         
         const isPdf = firstFile.file.type === 'application/pdf';
-        const isTextBased = upload.type === 'article' || firstFile.file.type === 'text/plain';
+        const isTextFile = firstFile.file.type === 'text/plain';
 
         useEffect(() => {
-            if (isTextBased && firstFile.preview) {
+            if ((upload.type === 'article' || isTextFile) && firstFile.preview) {
                 setIsLoadingText(true);
                 if (firstFile.preview.startsWith('data:text/plain')) {
                     try {
@@ -249,7 +249,7 @@ export default function ProfilePage() {
             } else {
                 setTextContent(null);
             }
-        }, [isTextBased, firstFile.preview]);
+        }, [upload.type, isTextFile, firstFile.preview]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -294,6 +294,8 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
+                const showTextContent = upload.type === 'article' || isTextFile;
+
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
                        {coverPhotoSrc && (
@@ -318,7 +320,7 @@ export default function ProfilePage() {
                                <div className="flex-grow w-full h-full">
                                 <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                                </div>
-                           ) : isTextBased ? (
+                           ) : showTextContent ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -537,13 +539,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
-
-    
-
-    
-
-    
-
-    
