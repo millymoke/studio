@@ -59,7 +59,7 @@ export default function ProfilePage() {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
                 if (Array.isArray(parsed)) {
-                    // Revoke old blob URLs before creating new ones if necessary
+                    // Revoke old blob URLs before creating new ones
                     blobUrls.current.forEach(url => URL.revokeObjectURL(url));
                     const currentBlobUrls: string[] = [];
                     parsed.forEach(upload => {
@@ -221,34 +221,21 @@ export default function ProfilePage() {
         const isTextFile = firstFile?.file.type.startsWith('text/');
     
         useEffect(() => {
-            const shouldFetchText = isTextFile && firstFile?.preview;
-            if (shouldFetchText) {
+            if (firstFile?.preview.startsWith('blob:') && isTextFile) {
                 setIsLoadingText(true);
                 const fetchContent = async () => {
                     try {
-                        let content = '';
-                        // Handles base64 data URLs for text, created by article form
-                        if (firstFile.preview.startsWith('data:text/plain')) {
-                            const base64Content = firstFile.preview.split(',')[1];
-                            content = atob(base64Content);
-                        } else if (firstFile.preview.startsWith('blob:')) {
-                            // Handles blob URLs created for uploaded text files
-                            const response = await fetch(firstFile.preview);
-                            content = await response.text();
-                        } else {
-                            content = "Unsupported text preview format.";
-                        }
+                        const response = await fetch(firstFile.preview);
+                        const content = await response.text();
                         setTextContent(content);
                     } catch (e) {
-                        console.error("Failed to decode or fetch content", e);
+                        console.error("Failed to fetch content from blob", e);
                         setTextContent("Could not load content.");
                     } finally {
                         setIsLoadingText(false);
                     }
                 };
                 fetchContent();
-            } else {
-                setTextContent(null);
             }
         }, [isTextFile, firstFile]);
     
@@ -297,9 +284,9 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const canPreviewText = isTextFile && firstFile.preview;
                 const canPreviewPdf = isPdf && firstFile.preview;
-                const canPreview = canPreviewText || canPreviewPdf;
+                const canPreviewText = isTextFile && firstFile.preview;
+                const canPreview = canPreviewPdf || canPreviewText;
 
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">

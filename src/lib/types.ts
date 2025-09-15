@@ -9,7 +9,7 @@ export interface SerializableFile {
 // Represents a file that has been uploaded and stored, ready for serialization
 export interface UploadedFile {
     file: SerializableFile;
-    preview: string; // For images/docs this is a Data URL, for videos this is a blob: URL
+    preview: string; // For images/covers this is a Data URL, for videos/docs it is a blob: URL
     altText?: string;
     objectPosition?: string; // e.g. 'top', 'center', 'bottom'
     coverPhoto?: {
@@ -29,5 +29,4 @@ export interface Upload {
   displayOption: 'individual' | 'carousel';
 }
 
-    
     

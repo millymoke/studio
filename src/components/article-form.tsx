@@ -87,8 +87,9 @@ export function ArticleForm() {
          };
       }
       
-      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-t' });
-      const articlePreview = await readFileAsDataURL(articleFile);
+      const articleBlob = new Blob([values.content], { type: 'text/plain;charset=utf-8' });
+      const articleFile = new File([articleBlob], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
+      const articlePreview = URL.createObjectURL(articleFile); // Use blob URL for preview
 
       const serializableArticleFile: SerializableFile = {
         name: articleFile.name,
@@ -227,3 +228,5 @@ export function ArticleForm() {
     </Form>
   );
 }
+
+    

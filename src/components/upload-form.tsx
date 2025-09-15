@@ -55,9 +55,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const getFileType = (file: File | SerializableFile): 'image' | 'video' | 'document' => {
+const getFileType = (file: File | SerializableFile): 'image' | 'video' | 'document' | 'article' => {
     if (file.type.startsWith('image/')) return 'image';
     if (file.type.startsWith('video/')) return 'video';
+    if (file.type.startsWith('text/')) return 'article';
     return 'document';
 }
 
@@ -91,8 +92,8 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          // For videos, create a blob URL to avoid storage quota issues. For others, a data URL.
-          const preview = file.type.startsWith('video/') ? URL.createObjectURL(file) : await readFileAsDataURL(file);
+          // Use blob URLs for all previews initially to avoid performance issues
+          const preview = URL.createObjectURL(file);
           return {
               file: file,
               altText: '',
@@ -132,7 +133,7 @@ export function UploadForm() {
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
     if (fileWithValue.coverPhoto?.file) {
       const coverFile = fileWithValue.coverPhoto.file as File;
-      const coverPreview = fileWithValue.coverPhoto.preview;
+      const coverPreview = fileWithValue.coverPhoto.preview; // This is already a data URL
       const serializableCoverFile: SerializableFile = { name: coverFile.name, type: coverFile.type, size: coverFile.size };
       coverPhotoData = {
           file: serializableCoverFile,
@@ -140,17 +141,19 @@ export function UploadForm() {
       };
     }
     
-    // For non-video files, the preview is already a data URL and can be stored directly.
-    // For videos, the preview is a blob URL, which is temporary. We'll store this temporary URL.
-    // The profile page will handle revoking it.
-    let finalPreview = fileWithValue.preview;
-    if (!originalFile.type.startsWith('video/')) {
-        // For images and other files, ensure it is a data URL to be persisted.
-        if (fileWithValue.preview.startsWith('blob:')) {
-            finalPreview = await readFileAsDataURL(originalFile);
-        }
-    }
+    // Convert to data URL only for images for persistence, keep blob for others
+    let finalPreview: string;
+    const fileType = getFileType(originalFile);
 
+    if (fileType === 'image') {
+        finalPreview = await readFileAsDataURL(originalFile);
+        // Revoke the blob URL now that we have the data URL
+        URL.revokeObjectURL(fileWithValue.preview); 
+    } else {
+        // For videos and documents, we keep the blob URL to avoid quota issues.
+        // It will be revoked on the profile page when the component unmounts.
+        finalPreview = fileWithValue.preview;
+    }
 
     return {
         file: serializableFile,
@@ -231,12 +234,10 @@ export function UploadForm() {
     // Use cover photo as primary preview if available, otherwise use file preview
     const previewSrc = coverPhotoData?.preview || field.preview;
 
-    // For images, we can directly use the src.
     if (fileType === 'image') {
        return <Image src={previewSrc} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
     
-    // For videos, if we have a cover photo, show it. Otherwise show video icon.
     if (fileType === 'video') {
        if (coverPhotoData?.preview) {
          return <Image src={coverPhotoData.preview} alt="Video cover" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
@@ -244,8 +245,7 @@ export function UploadForm() {
        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
     }
 
-    // For documents, if we have a cover photo, show it. Otherwise show file icon.
-    if (fileType === 'document') {
+    if (fileType === 'document' || fileType === 'article') {
        if (coverPhotoData?.preview) {
          return <Image src={coverPhotoData.preview} alt="Document cover" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
        }
@@ -331,7 +331,7 @@ export function UploadForm() {
                                       }}
                                   />
                                   </>
-                              ) : ( // document
+                              ) : ( // document or article
                                   <FormItem className="flex-1">
                                       <FormLabel className="sr-only">Cover Photo</FormLabel>
                                       <FormControl>
@@ -495,7 +495,5 @@ export function UploadForm() {
     </Form>
   );
 }
-
-    
 
     
