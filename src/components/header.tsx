@@ -32,7 +32,9 @@ export default function Header() {
         <Link href="/">Home</Link>
       </Button>
       <Button asChild>
-        <Link href="/upload"><Upload className="mr-2"/>Upload</Link>
+        <Link href="/upload">
+            <Upload className="mr-2"/>Upload
+        </Link>
       </Button>
       <Button variant="outline" asChild>
         <Link href="/one-time-link"><Lock className="mr-2"/>Secure Share</Link>
@@ -112,10 +114,10 @@ export default function Header() {
                           <p className="text-sm text-muted-foreground">{user.username.toLowerCase()}@example.com</p>
                         </div>
                       </div>
-                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/profile" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><User className="mr-2"/>Profile</Link></Button>
-                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/account-settings" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Settings className="mr-2"/>Settings</Link></Button>
-                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/upload" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Upload className="mr-2"/>Upload</Link></Button>
-                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/one-time-link" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Lock className="mr-2"/>Secure Share</Link></Button>
+                      <Link href="/profile" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><User className="mr-2"/>Profile</a></Button></Link>
+                      <Link href="/account-settings" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Settings className="mr-2"/>Settings</a></Button></Link>
+                      <Link href="/upload" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Upload className="mr-2"/>Upload</a></Button></Link>
+                      <Link href="/one-time-link" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Lock className="mr-2"/>Secure Share</a></Button></Link>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsLoggedIn(false); setIsSheetOpen(false); }}><LogOut className="mr-2"/>Log Out</Button>
                     </>
                   ) : (
