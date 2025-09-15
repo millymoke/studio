@@ -47,7 +47,7 @@ export default function Home() {
               </Button>
             </div>
             <div className="w-full h-auto aspect-video relative rounded-lg overflow-hidden shadow-lg">
-              <Image src="https://picsum.photos/1200/800?random=1" alt="Abstract art" data-ai-hint="abstract art" layout="fill" objectFit="cover" />
+              <Image src="https://picsum.photos/1200/800?random=1" alt="Abstract art" data-ai-hint="abstract art" fill className="object-cover" />
             </div>
           </div>
         </section>
@@ -55,7 +55,7 @@ export default function Home() {
         <section className="py-16">
           <div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
             <div className="w-full h-auto aspect-video relative rounded-lg overflow-hidden shadow-lg order-last md:order-first">
-              <Image src="https://picsum.photos/1200/800?random=2" alt="Content discovery" data-ai-hint="content discovery" layout="fill" objectFit="cover" />
+              <Image src="https://picsum.photos/1200/800?random=2" alt="Content discovery" data-ai-hint="content discovery" fill className="object-cover" />
             </div>
              <div className="text-center md:text-left">
               <h2 className="text-3xl md:text-4xl font-bold font-headline mb-4">Discover Content</h2>
