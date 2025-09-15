@@ -122,7 +122,8 @@ export function UploadForm() {
 
   const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
     const originalFile = fileWithValue.file as File;
-    
+    const fileType = getFileType(originalFile);
+
     const serializableFile: SerializableFile = { 
         name: originalFile.name, 
         type: originalFile.type, 
@@ -130,50 +131,32 @@ export function UploadForm() {
     };
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-    if (fileWithValue.coverPhoto && fileWithValue.coverPhoto.file instanceof File) {
-        const coverFile = fileWithValue.coverPhoto.file;
+    const coverPhoto = fileWithValue.coverPhoto;
+
+    if (coverPhoto && coverPhoto.file instanceof File) {
         const serializableCoverFile: SerializableFile = {
-            name: coverFile.name,
-            type: coverFile.type,
-            size: coverFile.size,
+            name: coverPhoto.file.name, type: coverPhoto.file.type, size: coverPhoto.file.size
         };
         coverPhotoData = {
             file: serializableCoverFile,
-            preview: await readFileAsDataURL(coverFile),
+            preview: await readFileAsDataURL(coverPhoto.file),
         };
-    } else if (fileWithValue.coverPhoto?.preview) {
-        // Handle case where cover photo was selected from video frame (already a data URL)
-         const response = await fetch(fileWithValue.coverPhoto.preview);
-         const blob = await response.blob();
-         const file = new File([blob], "frame.jpg", { type: blob.type });
-
-         const serializableCoverFile: SerializableFile = {
-            name: file.name,
-            type: file.type,
-            size: file.size,
-        };
-        coverPhotoData = {
-            file: serializableCoverFile,
-            preview: fileWithValue.coverPhoto.preview,
-        };
-    }
-
-    // For videos, the preview is a blob URL. For other types, it should be a data URL.
-    // If it's a blob URL that isn't for a video (which shouldn't happen with current logic, but as a safeguard),
-    // convert it to a data URL. Videos must stay as blob URLs to avoid quota issues.
-    let finalPreview = fileWithValue.preview;
-    const fileType = getFileType(originalFile);
-
-    if (fileType !== 'video' && finalPreview.startsWith('blob:')) {
-        const response = await fetch(finalPreview);
+    } else if (coverPhoto?.preview) {
+        // Frame selected from video is already a data URL
+        const response = await fetch(coverPhoto.preview);
         const blob = await response.blob();
-        finalPreview = await readFileAsDataURL(new File([blob], originalFile.name, {type: originalFile.type}));
+        const file = new File([blob], "frame.jpg", { type: blob.type });
+        const serializableCoverFile: SerializableFile = { name: file.name, type: file.type, size: file.size };
+        coverPhotoData = { file: serializableCoverFile, preview: coverPhoto.preview };
     }
+    
+    // The preview is already generated on file selection (blob for video, data for others)
+    const finalPreview = fileWithValue.preview;
 
     return {
         file: serializableFile,
-        altText: fileWithValue.altText,
         preview: finalPreview,
+        altText: fileWithValue.altText,
         coverPhoto: coverPhotoData,
         objectPosition: 'center',
     };

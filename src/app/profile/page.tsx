@@ -58,16 +58,17 @@ export default function ProfilePage() {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
                 if (Array.isArray(parsed)) {
-                    // Track which previews are blob URLs for later cleanup
+                    // Revoke old blob URLs before creating new ones if necessary
                     blobUrls.current.forEach(url => URL.revokeObjectURL(url));
-                    blobUrls.current = [];
+                    const currentBlobUrls: string[] = [];
                     parsed.forEach(upload => {
                         upload.files.forEach(file => {
                             if (file.preview.startsWith('blob:')) {
-                                blobUrls.current.push(file.preview);
+                                currentBlobUrls.push(file.preview);
                             }
                         })
                     })
+                    blobUrls.current = currentBlobUrls;
                     return parsed;
                 }
                 return [];
