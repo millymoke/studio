@@ -143,7 +143,16 @@ export function UploadForm() {
     // For non-video files, the preview is already a data URL and can be stored directly.
     // For videos, the preview is a blob URL, which is temporary. We'll store this temporary URL.
     // The profile page will handle revoking it.
-    const finalPreview = fileWithValue.preview;
+    let finalPreview = fileWithValue.preview;
+    if (originalFile.type.startsWith('video/')) {
+        // Blob URL is already set in handleFileChange
+    } else {
+        // For images and other files, ensure it is a data URL to be persisted.
+        if (fileWithValue.preview.startsWith('blob:')) {
+            finalPreview = await readFileAsDataURL(originalFile);
+        }
+    }
+
 
     return {
         file: serializableFile,
