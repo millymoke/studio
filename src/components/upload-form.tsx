@@ -122,7 +122,6 @@ export function UploadForm() {
 
   const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
     const originalFile = fileWithValue.file as File;
-    const fileType = getFileType(originalFile);
 
     const serializableFile: SerializableFile = { 
         name: originalFile.name, 
@@ -131,23 +130,24 @@ export function UploadForm() {
     };
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-    const coverPhoto = fileWithValue.coverPhoto;
+    const coverPhotoFile = fileWithValue.coverPhoto?.file;
+    const coverPhotoPreview = fileWithValue.coverPhoto?.preview;
 
-    if (coverPhoto && coverPhoto.file instanceof File) {
+    if (coverPhotoFile instanceof File && coverPhotoPreview) {
         const serializableCoverFile: SerializableFile = {
-            name: coverPhoto.file.name, type: coverPhoto.file.type, size: coverPhoto.file.size
+            name: coverPhotoFile.name, type: coverPhotoFile.type, size: coverPhotoFile.size
         };
         coverPhotoData = {
             file: serializableCoverFile,
-            preview: await readFileAsDataURL(coverPhoto.file),
+            preview: coverPhotoPreview,
         };
-    } else if (coverPhoto?.preview) {
-        // Frame selected from video is already a data URL
-        const response = await fetch(coverPhoto.preview);
+    } else if (coverPhotoPreview) {
+        // Handle case where preview is a data URL from frame selection
+        const response = await fetch(coverPhotoPreview);
         const blob = await response.blob();
         const file = new File([blob], "frame.jpg", { type: blob.type });
         const serializableCoverFile: SerializableFile = { name: file.name, type: file.type, size: file.size };
-        coverPhotoData = { file: serializableCoverFile, preview: coverPhoto.preview };
+        coverPhotoData = { file: serializableCoverFile, preview: coverPhotoPreview };
     }
     
     // The preview is already generated on file selection (blob for video, data for others)
