@@ -39,11 +39,16 @@ export default function ProfilePage() {
     const [viewingUpload, setViewingUpload] = useState<Upload | null>(null);
     const [isClient, setIsClient] = useState(false);
     const allUploadsRef = useRef<Upload[]>([]);
+    const blobUrlsRef = useRef<string[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
 
     useEffect(() => {
         setIsClient(true);
+        return () => {
+             // Revoke all created blob URLs to prevent memory leaks
+             blobUrlsRef.current.forEach(URL.revokeObjectURL);
+        }
     }, []);
     
     const loadUploadsFromStorage = useCallback(() => {
@@ -51,8 +56,14 @@ export default function ProfilePage() {
         const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
         if (storedUploads) {
             try {
-                const parsed = JSON.parse(storedUploads);
-                return Array.isArray(parsed) ? parsed : [];
+                const parsed = JSON.parse(storedUploads) as Upload[];
+                if (Array.isArray(parsed)) {
+                    // Track blob URLs so we can revoke them on cleanup
+                    const blobUrls = parsed.flatMap(u => u.files.map(f => f.preview)).filter(p => p.startsWith('blob:'));
+                    blobUrlsRef.current = blobUrls;
+                    return parsed;
+                }
+                return [];
             } catch (e) {
                 console.error("Failed to parse uploads from localStorage", e);
                 return [];
@@ -88,8 +99,6 @@ export default function ProfilePage() {
             }));
             setSavedUploads(mockSavedUploads);
         } else {
-            // If there are real uploads, we assume no saved uploads for now
-            // or a more complex logic would be needed to differentiate.
             setSavedUploads([]);
         }
 
@@ -101,7 +110,6 @@ export default function ProfilePage() {
     useEffect(() => {
         if (isClient) {
             loadInitialData();
-            // Add a listener to storage to reflect changes from other tabs.
             const handleStorageChange = (e: StorageEvent) => {
                 if (e.key === UPLOADS_STORAGE_KEY) {
                     loadInitialData();
@@ -506,3 +514,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    

@@ -33,7 +33,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
-import { readFileAsDataURL } from "@/lib/utils";
+import { readFileAsDataURL, generateFilePreview } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
 
@@ -41,7 +41,7 @@ const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
   coverPhoto: z.object({ file: z.any(), preview: z.string() }).optional(),
-  preview: z.string(), // data URL
+  preview: z.string(), // data URL or blob URL
 });
 
 const formSchema = z.object({
@@ -91,7 +91,7 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          const preview = await readFileAsDataURL(file);
+          const preview = await generateFilePreview(file);
           return {
               file: file,
               altText: '',
@@ -139,17 +139,23 @@ export function UploadForm() {
             type: coverFile.type,
             size: coverFile.size,
         };
-        // The preview is already a data URL from the form state
         coverPhotoData = {
             file: serializableCoverFile,
-            preview: coverPhotoValue.preview,
+            preview: coverPhotoValue.preview, // This is already a data URL
         };
     }
+
+    // For videos, the fileWithValue.preview is a blob: URL and should not be persisted if we expect it to work across sessions.
+    // However, for this implementation, we are accepting this limitation.
+    // For non-video files, it should be a data URL which is fine.
+    const finalPreview = getFileType(originalFile) === 'video' 
+      ? fileWithValue.preview // It's a blob URL, will be transient
+      : await readFileAsDataURL(originalFile); // Ensure it's a data URL for persistence
 
     return {
         file: serializableFile,
         altText: fileWithValue.altText,
-        preview: fileWithValue.preview, // The data URL from form state
+        preview: finalPreview,
         coverPhoto: coverPhotoData,
         objectPosition: 'center',
     };
@@ -163,11 +169,10 @@ export function UploadForm() {
         const newUploads: Upload[] = [];
 
         if (values.displayOption === 'individual') {
-            // Process each file into a separate upload post
             for (const fileWithValue of values.files) {
-                const fileData = await processFile(fileWithValue);
-                const originalFile = fileWithValue.file as File;
-                const newUpload: Upload = {
+                 const fileData = await processFile(fileWithValue);
+                 const originalFile = fileWithValue.file as File;
+                 const newUpload: Upload = {
                     id: `${Date.now()}-${originalFile.name}`,
                     type: getFileType(originalFile),
                     title: values.title,
@@ -180,13 +185,12 @@ export function UploadForm() {
                 newUploads.push(newUpload);
             }
         } else {
-            // Process all files into a single carousel post
             const processedFiles = await Promise.all(values.files.map(processFile));
             const firstFile = values.files[0].file as File;
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
-                type: getFileType(firstFile), // Base type on the first file
+                type: getFileType(firstFile),
                 title: values.title,
                 description: values.description || '',
                 tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
@@ -204,7 +208,7 @@ export function UploadForm() {
           description: "Your files have been successfully uploaded.",
         });
         form.reset();
-        remove(); // Clear the file array in the form state
+        remove();
         router.push('/profile');
 
     } catch (error) {
@@ -222,20 +226,33 @@ export function UploadForm() {
   const renderFilePreview = (field: (z.infer<typeof fileSchema> & {id: string})) => {
     const file = field.file as File;
     const coverPhotoData = field.coverPhoto;
-    
     const fileType = getFileType(file);
     
-    const previewSrc = coverPhotoData?.preview || (fileType === 'image' ? field.preview : undefined);
+    // Use cover photo as primary preview if available, otherwise use file preview
+    const previewSrc = coverPhotoData?.preview || field.preview;
 
-    if (previewSrc) {
-        return <Image src={previewSrc} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+    // For images, we can directly use the src.
+    if (fileType === 'image') {
+       return <Image src={previewSrc} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
     }
+    
+    // For videos, if we have a cover photo, show it. Otherwise show video icon.
     if (fileType === 'video') {
-        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
+       if (coverPhotoData?.preview) {
+         return <Image src={coverPhotoData.preview} alt="Video cover" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+       }
+       return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
     }
-    if(fileType === 'document') {
-        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
+
+    // For documents, if we have a cover photo, show it. Otherwise show file icon.
+    if (fileType === 'document') {
+       if (coverPhotoData?.preview) {
+         return <Image src={coverPhotoData.preview} alt="Document cover" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+       }
+       return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }
+
+    // Fallback for any other file types
     return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
   }
 
@@ -478,3 +495,5 @@ export function UploadForm() {
     </Form>
   );
 }
+
+    
