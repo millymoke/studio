@@ -232,10 +232,12 @@ export default function ProfilePage() {
         const [isLoadingText, setIsLoadingText] = useState(false);
         const firstFile = upload.files?.[0];
 
+        const isPdf = firstFile?.file.type === 'application/pdf';
+        const isTextBased = firstFile?.file.type.startsWith('text/');
+
         useEffect(() => {
-            if (firstFile?.file.type.startsWith('text/') && firstFile?.preview) {
+            if (isTextBased && firstFile?.preview) {
                 setIsLoadingText(true);
-                // The preview for text files from upload-form is a data URL.
                 fetch(firstFile.preview)
                     .then(response => response.text())
                     .then(text => {
@@ -243,78 +245,56 @@ export default function ProfilePage() {
                         setIsLoadingText(false);
                     })
                     .catch(e => {
-                        console.error("Failed to fetch content from data URL", e);
+                        console.error("Failed to fetch content from URL", e);
                         setTextContent("Could not load content.");
                         setIsLoadingText(false);
                     });
             } else {
                 setTextContent(null);
             }
-        }, [firstFile]);
+        }, [firstFile, isTextBased]);
 
         if (!firstFile) return null;
-
-        if (upload.displayOption === 'carousel' && upload.files.length > 1) {
-            return (
-                <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
-                    <CarouselContent>
-                        {upload.files.map((file, index) => (
-                            <CarouselItem key={index} className="flex items-center justify-center">
-                                <Image
-                                    src={file.preview || "https://picsum.photos/800/1000"}
-                                    alt={file.altText || upload.title}
-                                    width={800}
-                                    height={1000}
-                                    className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
-                                    style={{ objectPosition: file.objectPosition || 'center' }}
-                                />
-                            </CarouselItem>
-                        ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="-left-12" />
-                    <CarouselNext className="-right-12" />
-                </Carousel>
-            );
-        }
-
-        const isPdf = firstFile.file.type === 'application/pdf';
-        const isTextBased = firstFile.file.type.startsWith('text/') || upload.type === 'article';
-
-        // A file is previewable as a document if it's a PDF or a text file and a preview URL exists.
-        const canPreviewAsDocument = (isPdf || isTextBased) && firstFile.preview;
-
-        const renderDocumentViewer = () => {
-            return (
-                <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
-                    <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
-                       <h3 className="font-bold truncate">{upload.title}</h3>
-                       {firstFile.preview && (
-                           <Button asChild variant="outline" size="sm">
-                               <a href={firstFile.preview} download={firstFile.file.name}>
-                                   <Download className="mr-2 h-4 w-4" />
-                                   Download
-                               </a>
-                           </Button>
-                       )}
-                   </div>
-                   {isPdf ? (
-                       <div className="flex-grow w-full h-full">
-                           <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                       </div>
-                   ) : ( // isTextBased
-                       <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                           <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
-                               {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
-                           </div>
-                       </ScrollArea>
-                   )}
-               </div>
-            );
-        }
         
+        // This is the main view logic.
         switch (upload.type) {
+            case 'image':
+                if (upload.displayOption === 'carousel' && upload.files.length > 1) {
+                     return (
+                        <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
+                            <CarouselContent>
+                                {upload.files.map((file, index) => (
+                                    <CarouselItem key={index} className="flex items-center justify-center">
+                                        <Image
+                                            src={file.preview || "https://picsum.photos/800/1000"}
+                                            alt={file.altText || upload.title}
+                                            width={800}
+                                            height={1000}
+                                            className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
+                                            style={{ objectPosition: file.objectPosition || 'center' }}
+                                        />
+                                    </CarouselItem>
+                                ))}
+                            </CarouselContent>
+                            <CarouselPrevious className="-left-12" />
+                            <CarouselNext className="-right-12" />
+                        </Carousel>
+                    );
+                }
+                // Fallthrough for single image
+                return (
+                    <div className="flex items-center justify-center h-full">
+                        <Image
+                            src={firstFile.preview || "https://picsum.photos/800/1000"}
+                            alt={firstFile.altText || upload.title}
+                            width={800}
+                            height={1000}
+                            className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
+                        />
+                    </div>
+                );
+
             case 'video':
-                const coverPhotoSrc = firstFile.coverPhoto?.preview;
                 return (
                     <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
                         {firstFile.preview ? (
@@ -322,18 +302,47 @@ export default function ProfilePage() {
                                 src={firstFile.preview}
                                 controls
                                 autoPlay
-                                poster={coverPhotoSrc}
+                                poster={firstFile.coverPhoto?.preview}
                                 className="w-full h-full object-contain"
                             />
                         ): <p className="text-white">Could not load video.</p>}
                     </div>
                 );
-
-            case 'article':
+            
             case 'document':
-                if (canPreviewAsDocument) {
-                     return renderDocumentViewer();
+            case 'article':
+                const canPreview = (isPdf || isTextBased) && firstFile.preview;
+
+                if (canPreview) {
+                    return (
+                        <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
+                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
+                               <h3 className="font-bold truncate">{upload.title}</h3>
+                               {firstFile.preview && (
+                                   <Button asChild variant="outline" size="sm">
+                                       <a href={firstFile.preview} download={firstFile.file.name}>
+                                           <Download className="mr-2 h-4 w-4" />
+                                           Download
+                                       </a>
+                                   </Button>
+                               )}
+                           </div>
+                           {isPdf ? (
+                               <div className="flex-grow w-full h-full">
+                                   <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                               </div>
+                           ) : ( // isTextBased
+                               <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                                   <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
+                                   </div>
+                               </ScrollArea>
+                           )}
+                       </div>
+                    );
                 }
+                
+                // Fallback for non-previewable documents
                 return (
                    <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                        <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
@@ -350,21 +359,17 @@ export default function ProfilePage() {
                    </div>
                 );
 
-            case 'image':
             default:
                 return (
-                    <div className="flex items-center justify-center h-full">
-                        <Image
-                            src={firstFile.preview || "https://picsum.photos/800/1000"}
-                            alt={firstFile.altText || upload.title}
-                            width={800}
-                            height={1000}
-                            className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
-                        />
-                    </div>
+                     <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                       <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                       <h3 className="text-xl font-bold">{upload.title}</h3>
+                       <p className="text-muted-foreground mt-2">Cannot display this file type.</p>
+                   </div>
                 );
         }
     };
+
 
     const renderGrid = (posts: Upload[], isMyUploads: boolean) => (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
