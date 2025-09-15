@@ -233,24 +233,20 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
 
         useEffect(() => {
-            const isTextFile = firstFile?.file.type.startsWith('text/');
-            const isPreviewUrlAvailable = firstFile?.preview;
-
-            if (isTextFile && isPreviewUrlAvailable && firstFile.preview.startsWith('data:')) {
+            if (firstFile?.file.type.startsWith('text/') && firstFile?.preview) {
                 setIsLoadingText(true);
-                const fetchContent = async () => {
-                    try {
-                        const response = await fetch(firstFile.preview);
-                        const content = await response.text();
-                        setTextContent(content);
-                    } catch (e) {
-                        console.error("Failed to fetch content from URL", e);
-                        setTextContent("Could not load content.");
-                    } finally {
+                // The preview for text files from upload-form is a data URL.
+                fetch(firstFile.preview)
+                    .then(response => response.text())
+                    .then(text => {
+                        setTextContent(text);
                         setIsLoadingText(false);
-                    }
-                };
-                fetchContent();
+                    })
+                    .catch(e => {
+                        console.error("Failed to fetch content from data URL", e);
+                        setTextContent("Could not load content.");
+                        setIsLoadingText(false);
+                    });
             } else {
                 setTextContent(null);
             }
@@ -282,10 +278,10 @@ export default function ProfilePage() {
         }
 
         const isPdf = firstFile.file.type === 'application/pdf';
-        const isText = firstFile.file.type.startsWith('text/');
-        const coverPhotoSrc = firstFile.coverPhoto?.preview;
+        const isTextBased = firstFile.file.type.startsWith('text/') || upload.type === 'article';
+
         // A file is previewable as a document if it's a PDF or a text file and a preview URL exists.
-        const canPreviewAsDocument = (isPdf || isText) && firstFile.preview;
+        const canPreviewAsDocument = (isPdf || isTextBased) && firstFile.preview;
 
         const renderDocumentViewer = () => {
             return (
@@ -305,7 +301,7 @@ export default function ProfilePage() {
                        <div className="flex-grow w-full h-full">
                            <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                        </div>
-                   ) : ( // isText
+                   ) : ( // isTextBased
                        <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                            <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
                                {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -318,6 +314,7 @@ export default function ProfilePage() {
         
         switch (upload.type) {
             case 'video':
+                const coverPhotoSrc = firstFile.coverPhoto?.preview;
                 return (
                     <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
                         {firstFile.preview ? (
@@ -555,3 +552,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
