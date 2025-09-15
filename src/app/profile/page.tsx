@@ -219,10 +219,9 @@ export default function ProfilePage() {
     
         const isPdf = firstFile?.file.type === 'application/pdf';
         const isTextFile = firstFile?.file.type.startsWith('text/');
-        const isArticle = upload.type === 'article';
     
         useEffect(() => {
-            const shouldFetchText = (isArticle || isTextFile) && firstFile?.preview;
+            const shouldFetchText = isTextFile && firstFile?.preview;
             if (shouldFetchText) {
                 setIsLoadingText(true);
                 const fetchContent = async () => {
@@ -251,7 +250,7 @@ export default function ProfilePage() {
             } else {
                 setTextContent(null);
             }
-        }, [isArticle, isTextFile, firstFile]);
+        }, [isTextFile, firstFile]);
     
         if (!firstFile) return null;
         
@@ -298,7 +297,7 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const canPreviewText = (isArticle || isTextFile) && firstFile.preview;
+                const canPreviewText = isTextFile && firstFile.preview;
                 const canPreviewPdf = isPdf && firstFile.preview;
                 const canPreview = canPreviewText || canPreviewPdf;
 
