@@ -316,7 +316,9 @@ export default function ProfilePage() {
                            </div>
                           
                            {isPdf && firstFile.preview ? (
-                               <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                               <div className="flex-grow w-full h-full">
+                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                               </div>
                            ) : isTextBased ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
@@ -536,6 +538,8 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
 
     
 
