@@ -42,7 +42,7 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
-    const blobUrls = useRef<string[]>([]);
+    const blobUrls = useRef<Map<string, string>>(new Map());
 
     useEffect(() => {
         setIsClient(true);
@@ -59,18 +59,33 @@ export default function ProfilePage() {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
                 if (Array.isArray(parsed)) {
-                    // Revoke old blob URLs before creating new ones
+                     // Revoke old blob URLs before creating new ones
                     blobUrls.current.forEach(url => URL.revokeObjectURL(url));
-                    const currentBlobUrls: string[] = [];
-                    parsed.forEach(upload => {
-                        upload.files.forEach(file => {
-                            if (file.preview.startsWith('blob:')) {
-                                currentBlobUrls.push(file.preview);
+                    const newBlobUrls = new Map<string, string>();
+                    
+                    const updatedUploads = parsed.map(upload => {
+                        upload.files = upload.files.map(file => {
+                            if (file.preview.startsWith('base64:')) { // A temporary marker for blob data
+                                const [header, data] = file.preview.split(',');
+                                const [_, type] = header.split(':');
+                                const byteCharacters = atob(data);
+                                const byteNumbers = new Array(byteCharacters.length);
+                                for (let i = 0; i < byteCharacters.length; i++) {
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                }
+                                const byteArray = new Uint8Array(byteNumbers);
+                                const blob = new Blob([byteArray], { type });
+                                const blobUrl = URL.createObjectURL(blob);
+                                newBlobUrls.set(file.file.name, blobUrl);
+                                file.preview = blobUrl;
                             }
-                        })
-                    })
-                    blobUrls.current = currentBlobUrls;
-                    return parsed.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+                            return file;
+                        });
+                        return upload;
+                    });
+                    
+                    blobUrls.current = newBlobUrls;
+                    return updatedUploads.sort((a, b) => parseInt(b.id) - parseInt(a.id));
                 }
                 return [];
             } catch (e) {
@@ -221,7 +236,7 @@ export default function ProfilePage() {
             const isTextFile = firstFile?.file.type.startsWith('text/');
             const isPreviewUrlAvailable = firstFile?.preview;
 
-            if (isTextFile && isPreviewUrlAvailable) {
+            if (isTextFile && isPreviewUrlAvailable && firstFile.preview.startsWith('data:')) {
                 setIsLoadingText(true);
                 const fetchContent = async () => {
                     try {
@@ -269,9 +284,10 @@ export default function ProfilePage() {
         const isPdf = firstFile.file.type === 'application/pdf';
         const isText = firstFile.file.type.startsWith('text/');
         const coverPhotoSrc = firstFile.coverPhoto?.preview;
-        const canPreview = (isPdf || isText) && firstFile.preview;
+        // A file is previewable as a document if it's a PDF or a text file and a preview URL exists.
+        const canPreviewAsDocument = (isPdf || isText) && firstFile.preview;
 
-        const renderDocumentViewer = (isPdfType: boolean, isTextType: boolean) => {
+        const renderDocumentViewer = () => {
             return (
                 <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
@@ -285,11 +301,11 @@ export default function ProfilePage() {
                            </Button>
                        )}
                    </div>
-                   {isPdfType ? (
+                   {isPdf ? (
                        <div className="flex-grow w-full h-full">
                            <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                        </div>
-                   ) : ( // isTextType
+                   ) : ( // isText
                        <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                            <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
                                {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -318,8 +334,8 @@ export default function ProfilePage() {
 
             case 'article':
             case 'document':
-                if (canPreview) {
-                     return renderDocumentViewer(isPdf, isText);
+                if (canPreviewAsDocument) {
+                     return renderDocumentViewer();
                 }
                 return (
                    <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
@@ -539,5 +555,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
