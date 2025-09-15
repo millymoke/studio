@@ -112,10 +112,10 @@ export default function Header() {
                           <p className="text-sm text-muted-foreground">{user.username.toLowerCase()}@example.com</p>
                         </div>
                       </div>
-                      <Link href="/profile" className="w-full" onClick={() => setIsSheetOpen(false)}><Button variant="ghost" className="w-full justify-start"><User className="mr-2"/>Profile</Button></Link>
-                      <Link href="/account-settings" className="w-full" onClick={() => setIsSheetOpen(false)}><Button variant="ghost" className="w-full justify-start"><Settings className="mr-2"/>Settings</Button></Link>
-                      <Link href="/upload" className="w-full" onClick={() => setIsSheetOpen(false)}><Button variant="ghost" className="w-full justify-start"><Upload className="mr-2"/>Upload</Button></Link>
-                      <Link href="/one-time-link" className="w-full" onClick={() => setIsSheetOpen(false)}><Button variant="ghost" className="w-full justify-start"><Lock className="mr-2"/>Secure Share</Button></Link>
+                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/profile" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><User className="mr-2"/>Profile</Link></Button>
+                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/account-settings" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Settings className="mr-2"/>Settings</Link></Button>
+                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/upload" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Upload className="mr-2"/>Upload</Link></Button>
+                      <Button variant="ghost" className="w-full justify-start" asChild><Link href="/one-time-link" className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Lock className="mr-2"/>Secure Share</Link></Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsLoggedIn(false); setIsSheetOpen(false); }}><LogOut className="mr-2"/>Log Out</Button>
                     </>
                   ) : (
@@ -132,7 +132,7 @@ export default function Header() {
                 {userMenu}
               </>
             ) : (
-              <Button onClick={() => setIsLoggedIn(true)}>Sign In</Button>
+              <Button asChild><Link href="/login">Sign In</Link></Button>
             )}
           </nav>
         )}
