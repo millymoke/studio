@@ -122,6 +122,7 @@ export function UploadForm() {
 
   const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
     const originalFile = fileWithValue.file as File;
+    const fileType = getFileType(originalFile);
 
     const serializableFile: SerializableFile = { 
         name: originalFile.name, 
@@ -130,10 +131,8 @@ export function UploadForm() {
     };
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-    const coverPhotoValue = fileWithValue.coverPhoto;
-
-    if (coverPhotoValue && coverPhotoValue.file instanceof File) {
-        const coverFile = coverPhotoValue.file;
+    if (fileWithValue.coverPhoto && fileWithValue.coverPhoto.file instanceof File) {
+        const coverFile = fileWithValue.coverPhoto.file;
         const serializableCoverFile: SerializableFile = {
             name: coverFile.name,
             type: coverFile.type,
@@ -141,16 +140,31 @@ export function UploadForm() {
         };
         coverPhotoData = {
             file: serializableCoverFile,
-            preview: coverPhotoValue.preview, // This is already a data URL
+            preview: await readFileAsDataURL(coverFile),
+        };
+    } else if (fileWithValue.coverPhoto) {
+        // Handle case where cover photo was selected from video frame (already a data URL)
+        const response = await fetch(fileWithValue.coverPhoto.preview);
+        const blob = await response.blob();
+        const file = new File([blob], "frame.jpg", { type: blob.type });
+
+         const serializableCoverFile: SerializableFile = {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+        };
+        coverPhotoData = {
+            file: serializableCoverFile,
+            preview: fileWithValue.coverPhoto.preview,
         };
     }
 
-    // For videos, the fileWithValue.preview is a blob: URL and should not be persisted if we expect it to work across sessions.
-    // However, for this implementation, we are accepting this limitation.
-    // For non-video files, it should be a data URL which is fine.
-    const finalPreview = getFileType(originalFile) === 'video' 
-      ? fileWithValue.preview // It's a blob URL, will be transient
-      : await readFileAsDataURL(originalFile); // Ensure it's a data URL for persistence
+    let finalPreview: string;
+    if (fileType === 'video') {
+        finalPreview = fileWithValue.preview; // Keep blob URL for videos
+    } else {
+        finalPreview = await readFileAsDataURL(originalFile); // Convert images/docs to data URL
+    }
 
     return {
         file: serializableFile,
