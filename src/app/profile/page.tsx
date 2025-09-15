@@ -219,7 +219,8 @@ export default function ProfilePage() {
     
         if (!firstFile) return null;
         
-        const isTextBased = upload.type === 'article' || (firstFile.file.type.startsWith('text/') || firstFile.file.type.endsWith('json') || firstFile.file.type.endsWith('xml'));
+        const isPdf = firstFile.file.type === 'application/pdf';
+        const isTextBased = upload.type === 'article' || firstFile.file.type === 'text/plain';
 
         useEffect(() => {
             if (isTextBased && firstFile.preview) {
@@ -293,8 +294,6 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const isPdf = firstFile.file.type.includes('pdf');
-                
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
                        {coverPhotoSrc && (
@@ -538,6 +537,8 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
 
     
 
