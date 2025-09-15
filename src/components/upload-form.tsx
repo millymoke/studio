@@ -130,27 +130,19 @@ export function UploadForm() {
     };
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-    const coverPhotoFile = fileWithValue.coverPhoto?.file;
-    const coverPhotoPreview = fileWithValue.coverPhoto?.preview;
-
-    if (coverPhotoFile instanceof File && coverPhotoPreview) {
-        const serializableCoverFile: SerializableFile = {
-            name: coverPhotoFile.name, type: coverPhotoFile.type, size: coverPhotoFile.size
-        };
-        coverPhotoData = {
-            file: serializableCoverFile,
-            preview: coverPhotoPreview,
-        };
-    } else if (coverPhotoPreview) {
-        // Handle case where preview is a data URL from frame selection
-        const response = await fetch(coverPhotoPreview);
-        const blob = await response.blob();
-        const file = new File([blob], "frame.jpg", { type: blob.type });
-        const serializableCoverFile: SerializableFile = { name: file.name, type: file.type, size: file.size };
-        coverPhotoData = { file: serializableCoverFile, preview: coverPhotoPreview };
+    if (fileWithValue.coverPhoto?.file) {
+      const coverFile = fileWithValue.coverPhoto.file as File;
+      const coverPreview = fileWithValue.coverPhoto.preview;
+      const serializableCoverFile: SerializableFile = { name: coverFile.name, type: coverFile.type, size: coverFile.size };
+      coverPhotoData = {
+          file: serializableCoverFile,
+          preview: coverPreview,
+      };
     }
     
-    // The preview is already generated on file selection (blob for video, data for others)
+    // For non-video files, the preview is already a data URL and can be stored directly.
+    // For videos, the preview is a blob URL, which is temporary. We'll store this temporary URL.
+    // The profile page will handle revoking it.
     const finalPreview = fileWithValue.preview;
 
     return {

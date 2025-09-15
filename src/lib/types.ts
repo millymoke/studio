@@ -6,12 +6,6 @@ export interface SerializableFile {
     size: number;
 }
 
-// Represents a file that has been processed for preview on the client
-export interface FileWithPreview {
-    file: File | SerializableFile;
-    preview: string; // Object URL or Data URL
-}
-
 // Represents a file that has been uploaded and stored, ready for serialization
 export interface UploadedFile {
     file: SerializableFile;
