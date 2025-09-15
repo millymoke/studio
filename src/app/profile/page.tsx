@@ -20,6 +20,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export default function ProfilePage() {
     const user = { 
@@ -69,7 +70,7 @@ export default function ProfilePage() {
                         })
                     })
                     blobUrls.current = currentBlobUrls;
-                    return parsed;
+                    return parsed.sort((a, b) => parseInt(b.id) - parseInt(a.id));
                 }
                 return [];
             } catch (e) {
@@ -221,17 +222,28 @@ export default function ProfilePage() {
         const isTextBased = upload.type === 'article' || (firstFile.file.type.startsWith('text/') || firstFile.file.type.endsWith('json') || firstFile.file.type.endsWith('xml'));
 
         useEffect(() => {
-            if (isTextBased && firstFile.preview && firstFile.preview.startsWith('data:text/plain')) {
+            if (isTextBased && firstFile.preview) {
                 setIsLoadingText(true);
-                try {
-                    const base64Content = firstFile.preview.split(',')[1];
-                    const decodedContent = atob(base64Content);
-                    setTextContent(decodedContent);
-                } catch (e) {
-                    console.error("Failed to decode text content", e);
-                    setTextContent("Could not load content.");
-                } finally {
-                    setIsLoadingText(false);
+                if (firstFile.preview.startsWith('data:text/plain')) {
+                    try {
+                        const base64Content = firstFile.preview.split(',')[1];
+                        const decodedContent = atob(base64Content);
+                        setTextContent(decodedContent);
+                    } catch (e) {
+                        console.error("Failed to decode text content", e);
+                        setTextContent("Could not load content.");
+                    } finally {
+                        setIsLoadingText(false);
+                    }
+                } else if (firstFile.preview.startsWith('blob:')) {
+                    fetch(firstFile.preview)
+                        .then(res => res.text())
+                        .then(text => setTextContent(text))
+                        .catch(e => {
+                            console.error("Failed to fetch blob content", e);
+                            setTextContent("Could not load content.");
+                        })
+                        .finally(() => setIsLoadingText(false));
                 }
             } else {
                 setTextContent(null);
@@ -307,8 +319,8 @@ export default function ProfilePage() {
                                <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                            ) : isTextBased ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                                    <div className="p-8 prose prose-zinc dark:prose-invert max-w-none">
-                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
+                                    <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
                                    </div>
                                 </ScrollArea>
                            ) : (
@@ -486,13 +498,18 @@ export default function ProfilePage() {
                                 </TabsList>
                                 <TabsContent value="uploads">
                                     {isClient && !isLoading && uploads.length === 0 && (
-                                        <p className="text-center text-muted-foreground">You haven't uploaded anything yet.</p>
+                                        <div className="text-center py-10">
+                                            <p className="text-muted-foreground">You haven't uploaded anything yet.</p>
+                                            <Button asChild className="mt-4">
+                                                <Link href="/upload">Create your first post</Link>
+                                            </Button>
+                                        </div>
                                     )}
                                     {renderGrid(uploads, true)}
                                 </TabsContent>
                                 <TabsContent value="saved">
                                     {isClient && !isLoading && savedUploads.length === 0 && (
-                                        <p className="text-center text-muted-foreground">You haven't saved anything yet.</p>
+                                        <p className="text-center text-muted-foreground py-10">You haven't saved anything yet.</p>
                                     )}
                                     {renderGrid(savedUploads, false)}
                                 </TabsContent>
@@ -519,5 +536,7 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
 
     
