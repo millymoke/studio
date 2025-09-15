@@ -9,7 +9,9 @@ export interface SerializableFile {
 // Represents a file that has been uploaded and stored, ready for serialization
 export interface UploadedFile {
     file: SerializableFile;
-    preview: string; // For images/covers this is a Data URL, for videos/docs it is a blob: URL
+    // The preview is now a temporary blob URL for all file types except for small images
+    // which might be data URLs. This avoids localStorage quota issues.
+    preview: string; 
     altText?: string;
     objectPosition?: string; // e.g. 'top', 'center', 'bottom'
     coverPhoto?: {

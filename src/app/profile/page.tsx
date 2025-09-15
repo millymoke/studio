@@ -21,6 +21,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { getTemporaryFile } from '@/components/upload-form'; // Import the helper
 
 export default function ProfilePage() {
     const user = { 
@@ -44,11 +45,18 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState('uploads');
     const blobUrls = useRef<Map<string, string>>(new Map());
 
+    // This map will hold temporary blob URLs created on this page
+    const pageBlobUrls = useRef<Set<string>>(new Set());
+
     useEffect(() => {
         setIsClient(true);
-        // Clean up blob URLs on unmount
+        // Clean up blob URLs created on this page when the component unmounts
         return () => {
-            blobUrls.current.forEach(url => URL.revokeObjectURL(url));
+            pageBlobUrls.current.forEach(url => {
+                if (url.startsWith('blob:')) {
+                    URL.revokeObjectURL(url);
+                }
+            });
         };
     }, []);
     
@@ -59,33 +67,8 @@ export default function ProfilePage() {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
                 if (Array.isArray(parsed)) {
-                     // Revoke old blob URLs before creating new ones
-                    blobUrls.current.forEach(url => URL.revokeObjectURL(url));
-                    const newBlobUrls = new Map<string, string>();
-                    
-                    const updatedUploads = parsed.map(upload => {
-                        upload.files = upload.files.map(file => {
-                            if (file.preview.startsWith('base64:')) { // A temporary marker for blob data
-                                const [header, data] = file.preview.split(',');
-                                const [_, type] = header.split(':');
-                                const byteCharacters = atob(data);
-                                const byteNumbers = new Array(byteCharacters.length);
-                                for (let i = 0; i < byteCharacters.length; i++) {
-                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                }
-                                const byteArray = new Uint8Array(byteNumbers);
-                                const blob = new Blob([byteArray], { type });
-                                const blobUrl = URL.createObjectURL(blob);
-                                newBlobUrls.set(file.file.name, blobUrl);
-                                file.preview = blobUrl;
-                            }
-                            return file;
-                        });
-                        return upload;
-                    });
-                    
-                    blobUrls.current = newBlobUrls;
-                    return updatedUploads.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+                    // This sorting ensures newest uploads appear first
+                    return parsed.sort((a, b) => parseInt(b.id) - parseInt(a.id));
                 }
                 return [];
             } catch (e) {
@@ -104,7 +87,7 @@ export default function ProfilePage() {
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
 
-        // Generate mock saved uploads only if local storage is empty
+        // Generate mock saved uploads only if there are no real uploads
         if (storedUploads.length === 0) {
             const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
                 id: `mock-saved-${i}`,
@@ -115,7 +98,7 @@ export default function ProfilePage() {
                 tags: ['saved', 'inspiration'],
                 files: [{
                     file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
-                    preview: `https://picsum.photos/800/1000?random=${i + 200}`,
+                    preview: `https://picsum.photos/800/1000?random=${i + 200}`, // Using picsum for mock data
                     altText: 'A saved piece of beautiful content',
                     objectPosition: 'center',
                 }],
@@ -125,7 +108,6 @@ export default function ProfilePage() {
         } else {
             setSavedUploads([]);
         }
-
 
         setHasMore(allUploadsRef.current.length > BATCH_SIZE);
         setIsLoading(false);
@@ -180,7 +162,19 @@ export default function ProfilePage() {
 
     const handleDeletePost = () => {
         if (!deletingUploadId) return;
-
+        
+        // Find the upload to be deleted to revoke its blob URLs
+        const uploadToDelete = allUploadsRef.current.find(u => u.id === deletingUploadId);
+        if (uploadToDelete) {
+            uploadToDelete.files.forEach(file => {
+                // The file might be held in the temporary global storage.
+                // We don't need to do anything with that, just revoke the URL if it's a blob url
+                if(file.preview.startsWith('blob:')) {
+                    URL.revokeObjectURL(file.preview);
+                }
+            });
+        }
+        
         const updatedUploads = allUploadsRef.current.filter((upload: Upload) => upload.id !== deletingUploadId);
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
         allUploadsRef.current = updatedUploads;
@@ -193,6 +187,7 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
+        // Cover photos are always data URLs, so they are safe to use directly
         const previewSrc = firstFile.coverPhoto?.preview || (upload.type === 'image' ? firstFile.preview : undefined);
 
         return (
@@ -211,12 +206,6 @@ export default function ProfilePage() {
                         {(upload.type === 'document' || upload.type === 'article') && <FileText className="w-12 h-12 text-muted-foreground" />}
                     </div>
                 )}
-
-                {upload.type === 'video' && !previewSrc && (
-                     <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
-                        <PlayCircle className="w-12 h-12" />
-                    </div>
-                )}
                  {(upload.type === 'document' || upload.type === 'article') && !previewSrc && (
                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-4 text-center">
                         <FileText className="w-12 h-12 opacity-80" />
@@ -228,33 +217,86 @@ export default function ProfilePage() {
     }
     
     const EnlargedContentView = ({ upload }: { upload: Upload }) => {
+        const [dynamicUrl, setDynamicUrl] = useState<string | null>(null);
         const [textContent, setTextContent] = useState<string | null>(null);
-        const [isLoadingText, setIsLoadingText] = useState(false);
+        const [isLoading, setIsLoading] = useState(true);
+
         const firstFile = upload.files?.[0];
 
-        const isPdf = firstFile?.file.type === 'application/pdf';
-        const isTextBased = firstFile?.file.type.startsWith('text/');
-
         useEffect(() => {
-            if (isTextBased && firstFile?.preview) {
-                setIsLoadingText(true);
-                fetch(firstFile.preview)
-                    .then(response => response.text())
-                    .then(text => {
-                        setTextContent(text);
-                        setIsLoadingText(false);
-                    })
-                    .catch(e => {
-                        console.error("Failed to fetch content from URL", e);
-                        setTextContent("Could not load content.");
-                        setIsLoadingText(false);
-                    });
-            } else {
-                setTextContent(null);
-            }
-        }, [firstFile, isTextBased]);
+            let active = true;
+            let objectUrl: string | null = null;
 
-        if (!firstFile) return null;
+            const loadContent = async () => {
+                if (!firstFile) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                setIsLoading(true);
+
+                // Check if the URL is a data URL (persisted) or a blob URL (temporary)
+                if (firstFile.preview.startsWith('data:')) {
+                     setDynamicUrl(firstFile.preview);
+                } else if (firstFile.preview.startsWith('blob:')) {
+                    // Try to get the file from our session's temporary storage
+                    const tempFile = getTemporaryFile(firstFile.preview);
+
+                    if (tempFile) {
+                        objectUrl = URL.createObjectURL(tempFile);
+                        if (active) {
+                            setDynamicUrl(objectUrl);
+                            pageBlobUrls.current.add(objectUrl); // Track for cleanup
+                        }
+                    }
+                }
+                
+                // For text-based content, fetch and set it
+                const isTextBased = firstFile.file.type.startsWith('text/');
+                if (isTextBased) {
+                    try {
+                        const urlToFetch = objectUrl || firstFile.preview;
+                         const response = await fetch(urlToFetch);
+                         const text = await response.text();
+                         if (active) setTextContent(text);
+                    } catch (e) {
+                         console.error("Failed to fetch content from URL", e);
+                         if (active) setTextContent("Could not load content.");
+                    }
+                }
+
+                if (active) setIsLoading(false);
+            };
+
+            loadContent();
+
+            return () => {
+                active = false;
+                if (objectUrl) {
+                    URL.revokeObjectURL(objectUrl);
+                    pageBlobUrls.current.delete(objectUrl);
+                }
+            };
+        }, [firstFile]);
+
+        if (isLoading) {
+            return (
+                <div className="w-full h-full flex items-center justify-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-foreground" />
+                </div>
+            )
+        }
+        
+        if (!firstFile || !dynamicUrl) return (
+             <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+               <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+               <h3 className="text-xl font-bold">{upload.title}</h3>
+               <p className="text-muted-foreground mt-2">Could not load preview for this file.</p>
+           </div>
+        );
+        
+        const isPdf = firstFile.file.type === 'application/pdf';
+        const isText = firstFile.file.type.startsWith('text/');
         
         // This is the main view logic.
         switch (upload.type) {
@@ -281,11 +323,10 @@ export default function ProfilePage() {
                         </Carousel>
                     );
                 }
-                // Fallthrough for single image
                 return (
                     <div className="flex items-center justify-center h-full">
                         <Image
-                            src={firstFile.preview || "https://picsum.photos/800/1000"}
+                            src={dynamicUrl}
                             alt={firstFile.altText || upload.title}
                             width={800}
                             height={1000}
@@ -297,47 +338,54 @@ export default function ProfilePage() {
             case 'video':
                 return (
                     <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
-                        {firstFile.preview ? (
-                             <video
-                                src={firstFile.preview}
-                                controls
-                                autoPlay
-                                poster={firstFile.coverPhoto?.preview}
-                                className="w-full h-full object-contain"
-                            />
-                        ): <p className="text-white">Could not load video.</p>}
+                         <video
+                            src={dynamicUrl}
+                            controls
+                            autoPlay
+                            poster={firstFile.coverPhoto?.preview}
+                            className="w-full h-full object-contain"
+                        />
                     </div>
                 );
             
             case 'document':
             case 'article':
-                const canPreview = (isPdf || isTextBased) && firstFile.preview;
-
-                if (canPreview) {
-                    return (
-                        <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
+                if (isPdf) {
+                     return (
+                        <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                             <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                                <h3 className="font-bold truncate">{upload.title}</h3>
-                               {firstFile.preview && (
-                                   <Button asChild variant="outline" size="sm">
-                                       <a href={firstFile.preview} download={firstFile.file.name}>
-                                           <Download className="mr-2 h-4 w-4" />
-                                           Download
-                                       </a>
-                                   </Button>
-                               )}
+                               <Button asChild variant="outline" size="sm">
+                                   <a href={dynamicUrl} download={firstFile.file.name}>
+                                       <Download className="mr-2 h-4 w-4" />
+                                       Download
+                                   </a>
+                               </Button>
                            </div>
-                           {isPdf ? (
-                               <div className="flex-grow w-full h-full">
-                                   <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                           <div className="flex-grow w-full h-full">
+                               <embed src={dynamicUrl} type={firstFile.file.type} width="100%" height="100%" />
+                           </div>
+                       </div>
+                    );
+                }
+
+                if (isText) {
+                     return (
+                        <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
+                             <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
+                               <h3 className="font-bold truncate">{upload.title}</h3>
+                               <Button asChild variant="outline" size="sm">
+                                   <a href={dynamicUrl} download={firstFile.file.name}>
+                                       <Download className="mr-2 h-4 w-4" />
+                                       Download
+                                   </a>
+                               </Button>
+                           </div>
+                           <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                               <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                                   <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent || 'Loading content...'}</pre>
                                </div>
-                           ) : ( // isTextBased
-                               <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                                   <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
-                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
-                                   </div>
-                               </ScrollArea>
-                           )}
+                           </ScrollArea>
                        </div>
                     );
                 }
@@ -348,14 +396,12 @@ export default function ProfilePage() {
                        <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                        <h3 className="text-xl font-bold">{upload.title}</h3>
                        <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
-                       {firstFile.preview && (
-                           <Button asChild variant="outline" size="sm" className="mt-4">
-                               <a href={firstFile.preview} download={firstFile.file.name}>
-                                   <Download className="mr-2 h-4 w-4" />
-                                   Download
-                               </a>
-                           </Button>
-                       )}
+                       <Button asChild variant="outline" size="sm" className="mt-4">
+                           <a href={dynamicUrl} download={firstFile.file.name}>
+                               <Download className="mr-2 h-4 w-4" />
+                               Download
+                           </a>
+                       </Button>
                    </div>
                 );
 
@@ -557,5 +603,4 @@ export default function ProfilePage() {
         </div>
     );
 }
-
     

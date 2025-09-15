@@ -37,6 +37,11 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+// This is a global map to hold file data for the session.
+if (typeof window !== 'undefined') {
+  (window as any).temporaryFileStorage = (window as any).temporaryFileStorage || new Map<string, File>();
+}
+
 export function ArticleForm() {
   const { toast } = useToast();
   const router = useRouter();
@@ -87,12 +92,14 @@ export function ArticleForm() {
          };
       }
       
-      const articleBlob = new Blob([values.content], { type: 'text/plain;charset=utf-8' });
+      const articleBlob = new Blob([values.content], { type: 'text/plain;charset=utf-f' });
       const articleFile = new File([articleBlob], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
       
-      // For articles, we create a data URL since they are just text and should be small enough
-      // to not cause quota issues, while allowing them to persist.
-      const articlePreview = await readFileAsDataURL(articleFile);
+      // Create a temporary blob URL for the article content
+      const articlePreview = URL.createObjectURL(articleFile);
+
+      // Store the actual file in our temporary global storage
+      (window as any).temporaryFileStorage.set(articlePreview, articleFile);
 
       const serializableArticleFile: SerializableFile = {
         name: articleFile.name,
@@ -111,7 +118,7 @@ export function ArticleForm() {
         files: [
             {
                 file: serializableArticleFile,
-                preview: articlePreview,
+                preview: articlePreview, // This is the blob: URL
                 coverPhoto: coverPhotoData,
                 objectPosition: 'center',
             }
@@ -119,6 +126,7 @@ export function ArticleForm() {
       }
 
       const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
+      // We only store metadata in localStorage now
       localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newArticle, ...existingUploads]));
 
       toast({
@@ -231,5 +239,4 @@ export function ArticleForm() {
     </Form>
   );
 }
-
     
