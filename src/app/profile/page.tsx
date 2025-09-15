@@ -216,12 +216,12 @@ export default function ProfilePage() {
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoadingText, setIsLoadingText] = useState(false);
         const firstFile = upload.files?.[0];
-    
-        const isPdf = firstFile?.file.type === 'application/pdf';
-        const isTextFile = firstFile?.file.type.startsWith('text/');
-    
+
         useEffect(() => {
-            if (firstFile?.preview.startsWith('blob:') && isTextFile) {
+            const isTextFile = firstFile?.file.type.startsWith('text/');
+            const isBlobPreview = firstFile?.preview.startsWith('blob:');
+
+            if (isTextFile && isBlobPreview) {
                 setIsLoadingText(true);
                 const fetchContent = async () => {
                     try {
@@ -236,11 +236,14 @@ export default function ProfilePage() {
                     }
                 };
                 fetchContent();
+            } else {
+                setTextContent(null);
             }
-        }, [isTextFile, firstFile]);
-    
+        }, [firstFile]);
+
         if (!firstFile) return null;
-        
+
+        // Render carousel if displayOption is carousel and more than one file exists
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
                 <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
@@ -263,9 +266,13 @@ export default function ProfilePage() {
                 </Carousel>
             );
         }
-    
+
+        const isPdf = firstFile.file.type === 'application/pdf';
+        const isTextFile = firstFile.file.type.startsWith('text/');
         const coverPhotoSrc = firstFile.coverPhoto?.preview;
-    
+        const canPreview = (isPdf || isTextFile) && firstFile.preview;
+
+        // Handle specific file types for individual view
         switch (upload.type) {
             case 'video':
                 return (
@@ -281,22 +288,13 @@ export default function ProfilePage() {
                         ): <p className="text-white">Could not load video.</p>}
                     </div>
                 );
-    
-            case 'article':
-            case 'document': {
-                const canPreviewPdf = isPdf && firstFile.preview;
-                const canPreviewText = isTextFile && firstFile.preview;
-                const canPreview = canPreviewPdf || canPreviewText;
 
-                return (
-                    <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
-                       {coverPhotoSrc && !canPreviewPdf && (
-                           <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
-                               <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
-                           </div>
-                       )}
-                       <div className="flex-grow w-full border-t overflow-hidden flex flex-col">
-                           <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
+            case 'article':
+            case 'document':
+                if (canPreview) {
+                     return (
+                        <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
+                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                                <h3 className="font-bold truncate">{upload.title}</h3>
                                {firstFile.preview && (
                                    <Button asChild variant="outline" size="sm">
@@ -307,32 +305,37 @@ export default function ProfilePage() {
                                    </Button>
                                )}
                            </div>
-                          
-                           {canPreview ? (
-                               <>
-                                   {canPreviewPdf ? (
-                                       <div className="flex-grow w-full h-full">
-                                           <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                                       </div>
-                                   ) : ( // canPreviewText is true here
-                                       <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                                           <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
-                                               {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
-                                           </div>
-                                       </ScrollArea>
-                                   )}
-                               </>
-                           ) : (
-                               <div className="w-full flex-grow rounded-b-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-                                   <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                                   <h3 className="text-xl font-bold">{upload.title}</h3>
-                                   <p className="text-muted-foreground">Preview not available for this file type. Please download to view.</p>
+                           {isPdf ? (
+                               <div className="flex-grow w-full h-full">
+                                   <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                                </div>
+                           ) : ( // isTextFile
+                               <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                                   <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
+                                   </div>
+                               </ScrollArea>
                            )}
                        </div>
+                    );
+                }
+                // Fallback for document/article types without a valid preview
+                return (
+                   <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                       <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                       <h3 className="text-xl font-bold">{upload.title}</h3>
+                       <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+                       {firstFile.preview && (
+                           <Button asChild variant="outline" size="sm" className="mt-4">
+                               <a href={firstFile.preview} download={firstFile.file.name}>
+                                   <Download className="mr-2 h-4 w-4" />
+                                   Download
+                               </a>
+                           </Button>
+                       )}
                    </div>
-               );
-            }
+                );
+
             case 'image':
             default:
                 return (
