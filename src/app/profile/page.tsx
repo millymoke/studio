@@ -220,10 +220,11 @@ export default function ProfilePage() {
         if (!firstFile) return null;
         
         const isPdf = firstFile.file.type === 'application/pdf';
-        const isTextFile = firstFile.file.type === 'text/plain';
+        const isTextFile = firstFile.file.type.startsWith('text/');
+        const isTextBased = upload.type === 'article' || isTextFile;
 
         useEffect(() => {
-            if ((upload.type === 'article' || isTextFile) && firstFile.preview) {
+            if (isTextBased && firstFile.preview) {
                 setIsLoadingText(true);
                 if (firstFile.preview.startsWith('data:text/plain')) {
                     try {
@@ -245,11 +246,14 @@ export default function ProfilePage() {
                             setTextContent("Could not load content.");
                         })
                         .finally(() => setIsLoadingText(false));
+                } else {
+                     setTextContent("Unsupported text format.");
+                     setIsLoadingText(false);
                 }
             } else {
                 setTextContent(null);
             }
-        }, [upload.type, isTextFile, firstFile.preview]);
+        }, [isTextBased, firstFile.preview]);
     
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
@@ -294,11 +298,9 @@ export default function ProfilePage() {
     
             case 'article':
             case 'document': {
-                const showTextContent = upload.type === 'article' || isTextFile;
-
                 return (
                     <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
-                       {coverPhotoSrc && (
+                       {coverPhotoSrc && !isPdf && (
                            <div className="w-full aspect-video relative rounded-t-md overflow-hidden flex-shrink-0 bg-muted">
                                <Image src={coverPhotoSrc} alt={upload.title} fill className="object-cover" />
                            </div>
@@ -320,7 +322,7 @@ export default function ProfilePage() {
                                <div className="flex-grow w-full h-full">
                                 <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
                                </div>
-                           ) : showTextContent ? (
+                           ) : isTextBased ? (
                                 <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
                                     <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
                                        {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
@@ -539,3 +541,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
