@@ -87,7 +87,7 @@ export function ArticleForm() {
          };
       }
       
-      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-f' });
+      const articleFile = new File([values.content], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
       const articlePreview = await readFileAsDataURL(articleFile);
 
       const serializableArticleFile: SerializableFile = {
@@ -227,9 +227,3 @@ export function ArticleForm() {
     </Form>
   );
 }
-    
-    
-
-    
-
-    

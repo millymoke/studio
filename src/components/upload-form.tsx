@@ -92,10 +92,10 @@ export function UploadForm() {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
           let preview: string;
-          if (getFileType(file) === 'document') {
-             preview = ''; // No blob preview for documents initially
-          } else {
+          if (getFileType(file) === 'image' || getFileType(file) === 'video') {
              preview = URL.createObjectURL(file);
+          } else {
+             preview = ''; // No blob preview for documents initially
           }
           
           return {
@@ -127,9 +127,6 @@ export function UploadForm() {
 
   const processFile = async (fileWithValue: z.infer<typeof fileSchema>): Promise<UploadedFile> => {
     const originalFile = fileWithValue.file as File;
-    if (!(originalFile instanceof File)) {
-        throw new Error("Invalid file found in form values.");
-    }
 
     const serializableFile: SerializableFile = { 
         name: originalFile.name, 
@@ -137,7 +134,6 @@ export function UploadForm() {
         size: originalFile.size 
     };
 
-    // Always read the original file to get the data URL for storage
     const fileDataUrl = await readFileAsDataURL(originalFile);
 
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
@@ -150,17 +146,32 @@ export function UploadForm() {
             type: coverFile.type,
             size: coverFile.size,
         };
-        // The preview is already a data URL from handleCoverPhotoChange, so we can use it directly
+        const coverPhotoDataUrl = await readFileAsDataURL(coverFile);
+        coverPhotoData = {
+            file: serializableCoverFile,
+            preview: coverPhotoDataUrl,
+        };
+    } else if (coverPhotoValue && typeof coverPhotoValue.preview === 'string') {
+        // Handle case where cover photo comes from video frame (already a data URL)
+        const response = await fetch(coverPhotoValue.preview);
+        const blob = await response.blob();
+        const coverFile = new File([blob], "video-frame.jpg", { type: "image/jpeg" });
+        const serializableCoverFile: SerializableFile = {
+            name: coverFile.name,
+            type: coverFile.type,
+            size: coverFile.size,
+        };
         coverPhotoData = {
             file: serializableCoverFile,
             preview: coverPhotoValue.preview,
         };
     }
 
+
     return {
         file: serializableFile,
         altText: fileWithValue.altText,
-        preview: fileDataUrl, // The storable data URL of the main file
+        preview: fileDataUrl,
         coverPhoto: coverPhotoData,
         objectPosition: 'center',
     };
@@ -504,6 +515,3 @@ export function UploadForm() {
     </Form>
   );
 }
-
-    
-    

@@ -1,12 +1,15 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { generateOneTimeLink } from "@/ai/flows/secure-file-sharing";
+import type { Upload } from "@/lib/types";
+import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,14 +25,14 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, Copy, FileWarning, Loader2, Upload, Library, File as FileIcon, PlayCircle, Check } from "lucide-react";
+import { CheckCircle, Copy, FileWarning, Loader2, Upload as UploadIcon, Library, File as FileIcon, PlayCircle, Check } from "lucide-react";
 import Image from "next/image";
 
 const formSchema = z.object({
   file: z.any().optional(),
   selectedUpload: z.string().optional(),
   recipient: z.string().email({ message: "Please enter a valid recipient email." }).optional().or(z.literal('')),
-  expirationMinutes: z.coerce.number().min(1, "Expiration must be at least 1 minute.").max(1440, "Expiration cannot exceed 1440 minutes (24 hours)."),
+  expirationMinutes: z.coerce.number().min(1, "Expiration must be at least 1 minute.").max(1440, "Expiration cannot exceed 24 hours)."),
 }).refine(data => data.file || data.selectedUpload, {
     message: "Please either upload a file or select an existing one.",
     path: ["file"],
@@ -38,20 +41,26 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const userUploads = Array.from({ length: 8 }).map((_, i) => ({
-  id: `upload-${i}`,
-  type: i % 3 === 0 ? 'video' : (i % 3 === 1 ? 'article' : 'image'),
-  src: `https://picsum.photos/400/500?random=${i+1}`,
-  title: `Shared Content ${i+1}`,
-  fileDataUri: `data:image/jpeg;base64,simulated_base64_for_${i+1}`, // Simulated for AI flow
-}));
-
-
 export function OneTimeLinkForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("upload");
+  const [userUploads, setUserUploads] = useState<Upload[]>([]);
+
+  useEffect(() => {
+    const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
+    if (storedUploads) {
+      try {
+        const parsed = JSON.parse(storedUploads);
+        if (Array.isArray(parsed)) {
+          setUserUploads(parsed);
+        }
+      } catch (e) {
+        console.error("Failed to parse uploads from localStorage", e);
+      }
+    }
+  }, []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -84,9 +93,10 @@ export function OneTimeLinkForm() {
         fileDataUri = await readFileAsDataURI(file);
       } else if (activeTab === "select" && values.selectedUpload) {
         const selected = userUploads.find(u => u.id === values.selectedUpload);
-        if (!selected) throw new Error("Selected upload not found.");
-        // In a real app, you might fetch the file or its data URI from your backend
-        fileDataUri = selected.fileDataUri;
+        if (!selected || !selected.files[0]?.preview) {
+             throw new Error("Selected upload not found or is invalid.");
+        }
+        fileDataUri = selected.files[0].preview;
       } else {
         throw new Error("No file provided.");
       }
@@ -132,14 +142,17 @@ export function OneTimeLinkForm() {
     }
   };
 
-  const renderUploadPreview = (upload: typeof userUploads[0]) => {
+  const renderUploadPreview = (upload: Upload) => {
+     const firstFile = upload.files?.[0];
+     const previewSrc = firstFile?.coverPhoto?.preview || (upload.type === 'image' ? firstFile?.preview : undefined);
      switch (upload.type) {
         case 'image':
-            return <Image src={upload.src} alt={upload.title} fill className="object-cover" data-ai-hint="fashion outdoor"/>;
+            return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" data-ai-hint="fashion outdoor"/> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>;
         case 'video':
-            return <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
+            return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
         case 'article':
-             return <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
+        case 'document':
+             return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
         default:
             return <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
      }
@@ -153,13 +166,13 @@ export function OneTimeLinkForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Tabs defaultValue="upload" className="w-full" onValueChange={(value) => {
               setActiveTab(value);
-              form.resetField('file');
-              form.resetField('selectedUpload');
+              form.setValue('file', null);
+              form.setValue('selectedUpload', undefined);
               form.clearErrors('file');
           }}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="upload">
-                <Upload className="mr-2 h-4 w-4" />
+                <UploadIcon className="mr-2 h-4 w-4" />
                 Upload New File
               </TabsTrigger>
               <TabsTrigger value="select">
@@ -187,11 +200,12 @@ export function OneTimeLinkForm() {
                 <FormField
                   control={form.control}
                   name="selectedUpload"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
                         <FormLabel>Your Uploads</FormLabel>
                         <FormDescription>Select an existing file from your profile to share.</FormDescription>
                         <FormMessage />
+                        {userUploads.length > 0 ? (
                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-64 overflow-y-auto pt-2 pr-2">
                             {userUploads.map(upload => (
                                 <Card 
@@ -213,6 +227,9 @@ export function OneTimeLinkForm() {
                                 </Card>
                             ))}
                         </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground pt-2">You have no uploads to select from.</p>
+                        )}
                     </FormItem>
                   )}
                 />

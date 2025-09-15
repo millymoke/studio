@@ -69,23 +69,30 @@ export default function ProfilePage() {
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
         setUploads(initialBatch);
 
-        // Load or generate saved uploads
-        const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
-            id: `mock-saved-${i}`,
-            type: 'image' as const,
-            title: `Saved Content ${i}`,
-            description: 'A captivating piece of content I saved.',
-            link: '',
-            tags: ['saved', 'inspiration'],
-            files: [{
-                file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
-                preview: `https://picsum.photos/800/1000?random=${i + 200}`,
-                altText: 'A saved piece of beautiful content',
-                objectPosition: 'center',
-            }],
-            displayOption: 'individual' as const,
-        }));
-        setSavedUploads(mockSavedUploads);
+        // Generate mock saved uploads only if local storage is empty
+        if (storedUploads.length === 0) {
+            const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
+                id: `mock-saved-${i}`,
+                type: 'image' as const,
+                title: `Saved Content ${i}`,
+                description: 'A captivating piece of content I saved.',
+                link: '',
+                tags: ['saved', 'inspiration'],
+                files: [{
+                    file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
+                    preview: `https://picsum.photos/800/1000?random=${i + 200}`,
+                    altText: 'A saved piece of beautiful content',
+                    objectPosition: 'center',
+                }],
+                displayOption: 'individual' as const,
+            }));
+            setSavedUploads(mockSavedUploads);
+        } else {
+            // If there are uploads, perhaps filter some as "saved" or have a separate mechanism
+            // For now, we'll just show an empty saved tab if real uploads exist
+            setSavedUploads([]);
+        }
+
 
         setHasMore(allUploadsRef.current.length > BATCH_SIZE);
         setIsLoading(false);
@@ -173,7 +180,7 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {upload.type === 'video' && (
+                {upload.type === 'video' && !previewSrc && (
                      <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white">
                         <PlayCircle className="w-12 h-12" />
                     </div>
@@ -496,5 +503,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
