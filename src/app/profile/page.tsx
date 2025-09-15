@@ -43,7 +43,6 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
-    const blobUrls = useRef<Map<string, string>>(new Map());
 
     // This map will hold temporary blob URLs created on this page
     const pageBlobUrls = useRef<Set<string>>(new Set());
@@ -163,14 +162,14 @@ export default function ProfilePage() {
     const handleDeletePost = () => {
         if (!deletingUploadId) return;
         
-        // Find the upload to be deleted to revoke its blob URLs
         const uploadToDelete = allUploadsRef.current.find(u => u.id === deletingUploadId);
         if (uploadToDelete) {
             uploadToDelete.files.forEach(file => {
                 // The file might be held in the temporary global storage.
                 // We don't need to do anything with that, just revoke the URL if it's a blob url
                 if(file.preview.startsWith('blob:')) {
-                    URL.revokeObjectURL(file.preview);
+                    // Note: The actual file in temporaryFileStorage is not deleted here.
+                    // This is acceptable for a prototype, but a production app would need a cleanup mechanism.
                 }
             });
         }
@@ -187,12 +186,11 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
-        // Cover photos are always data URLs, so they are safe to use directly
         const previewSrc = firstFile.coverPhoto?.preview || (upload.type === 'image' ? firstFile.preview : undefined);
 
         return (
             <div className="absolute inset-0 bg-muted">
-                {previewSrc ? (
+                {previewSrc && previewSrc.startsWith('data:image') ? (
                     <Image 
                         src={previewSrc}
                         alt={upload.title}
@@ -235,30 +233,37 @@ export default function ProfilePage() {
 
                 setIsLoading(true);
 
-                // Check if the URL is a data URL (persisted) or a blob URL (temporary)
-                if (firstFile.preview.startsWith('data:')) {
-                     setDynamicUrl(firstFile.preview);
-                } else if (firstFile.preview.startsWith('blob:')) {
-                    // Try to get the file from our session's temporary storage
-                    const tempFile = getTemporaryFile(firstFile.preview);
+                let fileToLoad: File | undefined;
+                let urlToUse: string;
 
-                    if (tempFile) {
-                        objectUrl = URL.createObjectURL(tempFile);
-                        if (active) {
-                            setDynamicUrl(objectUrl);
-                            pageBlobUrls.current.add(objectUrl); // Track for cleanup
-                        }
+                if (firstFile.preview.startsWith('data:')) {
+                    urlToUse = firstFile.preview;
+                } else if (firstFile.preview.startsWith('blob:')) {
+                    fileToLoad = getTemporaryFile(firstFile.preview);
+                    if (fileToLoad) {
+                        objectUrl = URL.createObjectURL(fileToLoad);
+                        pageBlobUrls.current.add(objectUrl); // Track for cleanup
+                        urlToUse = objectUrl;
+                    } else {
+                        console.error("Could not find temporary file for blob URL:", firstFile.preview);
+                        setIsLoading(false);
+                        return;
                     }
+                } else {
+                     console.error("Invalid preview URL format:", firstFile.preview);
+                     setIsLoading(false);
+                     return;
                 }
-                
-                // For text-based content, fetch and set it
+
+                if (active) {
+                    setDynamicUrl(urlToUse);
+                }
+
                 const isTextBased = firstFile.file.type.startsWith('text/');
                 if (isTextBased) {
                     try {
-                        const urlToFetch = objectUrl || firstFile.preview;
-                         const response = await fetch(urlToFetch);
-                         const text = await response.text();
-                         if (active) setTextContent(text);
+                        const text = await (fileToLoad || (await fetch(urlToUse)).blob()).text();
+                        if (active) setTextContent(text);
                     } catch (e) {
                          console.error("Failed to fetch content from URL", e);
                          if (active) setTextContent("Could not load content.");
@@ -287,133 +292,134 @@ export default function ProfilePage() {
             )
         }
         
-        if (!firstFile || !dynamicUrl) return (
-             <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-               <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-               <h3 className="text-xl font-bold">{upload.title}</h3>
-               <p className="text-muted-foreground mt-2">Could not load preview for this file.</p>
-           </div>
-        );
+        if (!firstFile || !dynamicUrl) {
+            return (
+                <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-bold">{upload.title}</h3>
+                    <p className="text-muted-foreground mt-2">Could not load preview for this file.</p>
+                </div>
+            );
+        }
         
         const isPdf = firstFile.file.type === 'application/pdf';
         const isText = firstFile.file.type.startsWith('text/');
         
-        // This is the main view logic.
-        switch (upload.type) {
-            case 'image':
-                if (upload.displayOption === 'carousel' && upload.files.length > 1) {
-                     return (
-                        <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
-                            <CarouselContent>
-                                {upload.files.map((file, index) => (
-                                    <CarouselItem key={index} className="flex items-center justify-center">
-                                        <Image
-                                            src={file.preview || "https://picsum.photos/800/1000"}
-                                            alt={file.altText || upload.title}
-                                            width={800}
-                                            height={1000}
-                                            className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
-                                            style={{ objectPosition: file.objectPosition || 'center' }}
-                                        />
-                                    </CarouselItem>
-                                ))}
-                            </CarouselContent>
-                            <CarouselPrevious className="-left-12" />
-                            <CarouselNext className="-right-12" />
-                        </Carousel>
-                    );
-                }
-                return (
-                    <div className="flex items-center justify-center h-full">
-                        <Image
-                            src={dynamicUrl}
-                            alt={firstFile.altText || upload.title}
-                            width={800}
-                            height={1000}
-                            className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
-                        />
-                    </div>
+        if (upload.type === 'image') {
+            if (upload.displayOption === 'carousel' && upload.files.length > 1) {
+                    return (
+                    <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
+                        <CarouselContent>
+                            {upload.files.map((file, index) => (
+                                <CarouselItem key={index} className="flex items-center justify-center">
+                                    <Image
+                                        src={file.preview || "https://picsum.photos/800/1000"}
+                                        alt={file.altText || upload.title}
+                                        width={800}
+                                        height={1000}
+                                        className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
+                                        style={{ objectPosition: file.objectPosition || 'center' }}
+                                    />
+                                </CarouselItem>
+                            ))}
+                        </CarouselContent>
+                        <CarouselPrevious className="-left-12" />
+                        <CarouselNext className="-right-12" />
+                    </Carousel>
                 );
-
-            case 'video':
-                return (
-                    <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
-                         <video
-                            src={dynamicUrl}
-                            controls
-                            autoPlay
-                            poster={firstFile.coverPhoto?.preview}
-                            className="w-full h-full object-contain"
-                        />
-                    </div>
-                );
-            
-            case 'document':
-            case 'article':
-                if (isPdf) {
-                     return (
-                        <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
-                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
-                               <h3 className="font-bold truncate">{upload.title}</h3>
-                               <Button asChild variant="outline" size="sm">
-                                   <a href={dynamicUrl} download={firstFile.file.name}>
-                                       <Download className="mr-2 h-4 w-4" />
-                                       Download
-                                   </a>
-                               </Button>
-                           </div>
-                           <div className="flex-grow w-full h-full">
-                               <embed src={dynamicUrl} type={firstFile.file.type} width="100%" height="100%" />
-                           </div>
-                       </div>
-                    );
-                }
-
-                if (isText) {
-                     return (
-                        <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
-                             <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
-                               <h3 className="font-bold truncate">{upload.title}</h3>
-                               <Button asChild variant="outline" size="sm">
-                                   <a href={dynamicUrl} download={firstFile.file.name}>
-                                       <Download className="mr-2 h-4 w-4" />
-                                       Download
-                                   </a>
-                               </Button>
-                           </div>
-                           <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                               <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
-                                   <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent || 'Loading content...'}</pre>
-                               </div>
-                           </ScrollArea>
-                       </div>
-                    );
-                }
-                
-                // Fallback for non-previewable documents
-                return (
-                   <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-                       <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                       <h3 className="text-xl font-bold">{upload.title}</h3>
-                       <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
-                       <Button asChild variant="outline" size="sm" className="mt-4">
-                           <a href={dynamicUrl} download={firstFile.file.name}>
-                               <Download className="mr-2 h-4 w-4" />
-                               Download
-                           </a>
-                       </Button>
-                   </div>
-                );
-
-            default:
-                return (
-                     <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-                       <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                       <h3 className="text-xl font-bold">{upload.title}</h3>
-                       <p className="text-muted-foreground mt-2">Cannot display this file type.</p>
-                   </div>
-                );
+            }
+            return (
+                <div className="flex items-center justify-center h-full">
+                    <Image
+                        src={dynamicUrl}
+                        alt={firstFile.altText || upload.title}
+                        width={800}
+                        height={1000}
+                        className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
+                    />
+                </div>
+            );
         }
+
+        if (upload.type === 'video') {
+            return (
+                <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
+                        <video
+                        src={dynamicUrl}
+                        controls
+                        autoPlay
+                        poster={firstFile.coverPhoto?.preview}
+                        className="w-full h-full object-contain"
+                    />
+                </div>
+            );
+        }
+
+        if (isPdf) {
+            return (
+                <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
+                    <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
+                        <h3 className="font-bold truncate">{upload.title}</h3>
+                        <Button asChild variant="outline" size="sm">
+                            <a href={dynamicUrl} download={firstFile.file.name}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                            </a>
+                        </Button>
+                    </div>
+                    <div className="flex-grow w-full h-full">
+                        <embed src={dynamicUrl} type={firstFile.file.type} width="100%" height="100%" />
+                    </div>
+                </div>
+            );
+        }
+
+        if (isText) {
+            return (
+                <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
+                    <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
+                        <h3 className="font-bold truncate">{upload.title}</h3>
+                        <Button asChild variant="outline" size="sm">
+                            <a href={dynamicUrl} download={firstFile.file.name}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                            </a>
+                        </Button>
+                    </div>
+                    <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                        <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                            <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent || 'Loading content...'}</pre>
+                        </div>
+                    </ScrollArea>
+                </div>
+            );
+        }
+
+        // Fallback for non-previewable documents
+        if (upload.type === 'document' || upload.type === 'article') {
+            return (
+                <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-bold">{upload.title}</h3>
+                    <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+                    <Button asChild variant="outline" size="sm" className="mt-4">
+                        <a href={dynamicUrl} download={firstFile.file.name}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                        </a>
+                    </Button>
+                </div>
+            );
+        }
+
+        // General fallback
+        return (
+            <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-bold">{upload.title}</h3>
+                <p className="text-muted-foreground mt-2">Cannot display this file type.</p>
+            </div>
+        );
     };
 
 
@@ -603,4 +609,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
     
