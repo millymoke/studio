@@ -16,15 +16,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(true); // Default to logged in for demo
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const isMobile = useIsMobile();
+  const router = useRouter();
+
   const user = { 
       username: 'Maalai',
       avatar: 'https://picsum.photos/200'
   };
+  
+  const handleSheetLinkClick = (path: string) => {
+    router.push(path);
+    setIsSheetOpen(false);
+  };
+
 
   const navLinks = (
     <>
@@ -32,9 +41,7 @@ export default function Header() {
         <Link href="/">Home</Link>
       </Button>
       <Button asChild>
-        <Link href="/upload">
-            <Upload className="mr-2"/>Upload
-        </Link>
+        <Link href="/upload"><Upload className="mr-2"/>Upload</Link>
       </Button>
       <Button variant="outline" asChild>
         <Link href="/one-time-link"><Lock className="mr-2"/>Secure Share</Link>
@@ -114,14 +121,14 @@ export default function Header() {
                           <p className="text-sm text-muted-foreground">{user.username.toLowerCase()}@example.com</p>
                         </div>
                       </div>
-                      <Link href="/profile" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><User className="mr-2"/>Profile</a></Button></Link>
-                      <Link href="/account-settings" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Settings className="mr-2"/>Settings</a></Button></Link>
-                      <Link href="/upload" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Upload className="mr-2"/>Upload</a></Button></Link>
-                      <Link href="/one-time-link" passHref legacyBehavior><Button variant="ghost" className="w-full justify-start" asChild><a className="w-full justify-start" onClick={() => setIsSheetOpen(false)}><Lock className="mr-2"/>Secure Share</a></Button></Link>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/profile')}><User className="mr-2"/>Profile</Button>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/account-settings')}><Settings className="mr-2"/>Settings</Button>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/upload')}><Upload className="mr-2"/>Upload</Button>
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/one-time-link')}><Lock className="mr-2"/>Secure Share</Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsLoggedIn(false); setIsSheetOpen(false); }}><LogOut className="mr-2"/>Log Out</Button>
                     </>
                   ) : (
-                    <Button onClick={() => { setIsLoggedIn(true); setIsSheetOpen(false); }} className="w-full">Sign In</Button>
+                    <Button onClick={() => { handleSheetLinkClick('/login'); }} className="w-full">Sign In</Button>
                   )}
                 </nav>
             </SheetContent>
@@ -134,7 +141,9 @@ export default function Header() {
                 {userMenu}
               </>
             ) : (
-              <Button asChild><Link href="/login">Sign In</Link></Button>
+               <Button asChild>
+                  <Link href="/login">Sign In</Link>
+                </Button>
             )}
           </nav>
         )}
