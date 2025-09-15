@@ -58,7 +58,8 @@ type FormValues = z.infer<typeof formSchema>;
 const getFileType = (file: File | SerializableFile): 'image' | 'video' | 'document' | 'article' => {
     if (file.type.startsWith('image/')) return 'image';
     if (file.type.startsWith('video/')) return 'video';
-    if (file.type.startsWith('text/')) return 'article';
+    // Treat both text and application/pdf as documents for viewing purposes
+    if (file.type.startsWith('text/') || file.type === 'application/pdf') return 'document';
     return 'document';
 }
 
@@ -92,7 +93,6 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          // Use blob URLs for all previews initially to avoid performance issues
           const preview = URL.createObjectURL(file);
           return {
               file: file,
@@ -133,7 +133,7 @@ export function UploadForm() {
     let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
     if (fileWithValue.coverPhoto?.file) {
       const coverFile = fileWithValue.coverPhoto.file as File;
-      const coverPreview = fileWithValue.coverPhoto.preview; // This is already a data URL
+      const coverPreview = fileWithValue.coverPhoto.preview; 
       const serializableCoverFile: SerializableFile = { name: coverFile.name, type: coverFile.type, size: coverFile.size };
       coverPhotoData = {
           file: serializableCoverFile,
@@ -141,17 +141,23 @@ export function UploadForm() {
       };
     }
     
-    // Convert to data URL only for images for persistence, keep blob for others
     let finalPreview: string;
     const fileType = getFileType(originalFile);
 
-    if (fileType === 'image') {
-        finalPreview = await readFileAsDataURL(originalFile);
-        // Revoke the blob URL now that we have the data URL
-        URL.revokeObjectURL(fileWithValue.preview); 
+    // Only convert images and documents to data URLs for persistence in localStorage.
+    // Videos will keep blob URLs to avoid quota issues. These blob URLs will be temporary.
+    if (fileType === 'image' || fileType === 'document' || fileType === 'article') {
+        try {
+            finalPreview = await readFileAsDataURL(originalFile);
+            // Revoke the original blob URL as we now have a persistent data URL
+            URL.revokeObjectURL(fileWithValue.preview); 
+        } catch (error) {
+            console.error("Failed to read file as data URL", error);
+            // If reading fails, we keep the blob URL, but it will be temporary
+            finalPreview = fileWithValue.preview;
+        }
     } else {
-        // For videos and documents, we keep the blob URL to avoid quota issues.
-        // It will be revoked on the profile page when the component unmounts.
+        // For videos, always use the blob URL. It will be revoked on the profile page.
         finalPreview = fileWithValue.preview;
     }
 
@@ -231,7 +237,6 @@ export function UploadForm() {
     const coverPhotoData = field.coverPhoto;
     const fileType = getFileType(file);
     
-    // Use cover photo as primary preview if available, otherwise use file preview
     const previewSrc = coverPhotoData?.preview || field.preview;
 
     if (fileType === 'image') {
@@ -252,7 +257,6 @@ export function UploadForm() {
        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }
 
-    // Fallback for any other file types
     return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
   }
 

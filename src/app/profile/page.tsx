@@ -219,9 +219,9 @@ export default function ProfilePage() {
 
         useEffect(() => {
             const isTextFile = firstFile?.file.type.startsWith('text/');
-            const isBlobPreview = firstFile?.preview.startsWith('blob:');
+            const isPreviewUrlAvailable = firstFile?.preview;
 
-            if (isTextFile && isBlobPreview) {
+            if (isTextFile && isPreviewUrlAvailable) {
                 setIsLoadingText(true);
                 const fetchContent = async () => {
                     try {
@@ -229,7 +229,7 @@ export default function ProfilePage() {
                         const content = await response.text();
                         setTextContent(content);
                     } catch (e) {
-                        console.error("Failed to fetch content from blob", e);
+                        console.error("Failed to fetch content from URL", e);
                         setTextContent("Could not load content.");
                     } finally {
                         setIsLoadingText(false);
@@ -243,7 +243,6 @@ export default function ProfilePage() {
 
         if (!firstFile) return null;
 
-        // Render carousel if displayOption is carousel and more than one file exists
         if (upload.displayOption === 'carousel' && upload.files.length > 1) {
             return (
                 <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
@@ -268,11 +267,39 @@ export default function ProfilePage() {
         }
 
         const isPdf = firstFile.file.type === 'application/pdf';
-        const isTextFile = firstFile.file.type.startsWith('text/');
+        const isText = firstFile.file.type.startsWith('text/');
         const coverPhotoSrc = firstFile.coverPhoto?.preview;
-        const canPreview = (isPdf || isTextFile) && firstFile.preview;
+        const canPreview = (isPdf || isText) && firstFile.preview;
 
-        // Handle specific file types for individual view
+        const renderDocumentViewer = (isPdfType: boolean, isTextType: boolean) => {
+            return (
+                <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
+                    <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
+                       <h3 className="font-bold truncate">{upload.title}</h3>
+                       {firstFile.preview && (
+                           <Button asChild variant="outline" size="sm">
+                               <a href={firstFile.preview} download={firstFile.file.name}>
+                                   <Download className="mr-2 h-4 w-4" />
+                                   Download
+                               </a>
+                           </Button>
+                       )}
+                   </div>
+                   {isPdfType ? (
+                       <div className="flex-grow w-full h-full">
+                           <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
+                       </div>
+                   ) : ( // isTextType
+                       <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                           <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                               {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
+                           </div>
+                       </ScrollArea>
+                   )}
+               </div>
+            );
+        }
+        
         switch (upload.type) {
             case 'video':
                 return (
@@ -292,34 +319,8 @@ export default function ProfilePage() {
             case 'article':
             case 'document':
                 if (canPreview) {
-                     return (
-                        <div className="w-full max-w-4xl h-full flex flex-col bg-background rounded-md overflow-hidden">
-                            <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
-                               <h3 className="font-bold truncate">{upload.title}</h3>
-                               {firstFile.preview && (
-                                   <Button asChild variant="outline" size="sm">
-                                       <a href={firstFile.preview} download={firstFile.file.name}>
-                                           <Download className="mr-2 h-4 w-4" />
-                                           Download
-                                       </a>
-                                   </Button>
-                               )}
-                           </div>
-                           {isPdf ? (
-                               <div className="flex-grow w-full h-full">
-                                   <embed src={firstFile.preview} type={firstFile.file.type} width="100%" height="100%" className="flex-grow" />
-                               </div>
-                           ) : ( // isTextFile
-                               <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
-                                   <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
-                                       {isLoadingText ? <Loader2 className="animate-spin text-foreground" /> : <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent}</pre>}
-                                   </div>
-                               </ScrollArea>
-                           )}
-                       </div>
-                    );
+                     return renderDocumentViewer(isPdf, isText);
                 }
-                // Fallback for document/article types without a valid preview
                 return (
                    <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                        <FileText className="w-20 h-20 mb-4 text-muted-foreground" />

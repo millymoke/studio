@@ -89,7 +89,10 @@ export function ArticleForm() {
       
       const articleBlob = new Blob([values.content], { type: 'text/plain;charset=utf-8' });
       const articleFile = new File([articleBlob], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
-      const articlePreview = URL.createObjectURL(articleFile); // Use blob URL for preview
+      
+      // For articles, we create a data URL since they are just text and should be small enough
+      // to not cause quota issues, while allowing them to persist.
+      const articlePreview = await readFileAsDataURL(articleFile);
 
       const serializableArticleFile: SerializableFile = {
         name: articleFile.name,
