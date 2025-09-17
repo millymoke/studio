@@ -82,10 +82,15 @@ export default function ProfilePage() {
     const processUploadsWithLocalPreviews = async (uploadsToProcess: Upload[]): Promise<UploadWithLocalPreview[]> => {
         const processed = await Promise.all(uploadsToProcess.map(async (upload) => {
             const filesWithLocalPreviews = await Promise.all(upload.files.map(async (file) => {
-                if (upload.type === 'image' || file.coverPhoto?.preview) {
-                     return { ...file, localPreviewUrl: file.preview || file.coverPhoto?.preview };
+                // If a preview data URL is already in the metadata (for images/covers), use it.
+                if (file.preview) {
+                     return { ...file, localPreviewUrl: file.preview };
+                }
+                 if (file.coverPhoto?.preview) {
+                     return { ...file, localPreviewUrl: file.coverPhoto.preview };
                 }
 
+                // Otherwise, generate a blob URL from IndexedDB data.
                 try {
                     const dbFiles = await getFilesFromDb(upload.id);
                     if (dbFiles && dbFiles.length > 0) {
@@ -199,7 +204,7 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
-        const previewSrc = firstFile.coverPhoto?.preview || firstFile.localPreviewUrl;
+        const previewSrc = firstFile.localPreviewUrl;
 
         return (
             <div className="absolute inset-0 bg-muted">
@@ -246,42 +251,37 @@ export default function ProfilePage() {
 
                 setIsLoading(true);
 
-                let urlToUse: string | undefined;
+                // For images, the localPreviewUrl is a data: URL and is sufficient.
+                if (upload.type === 'image' && firstFile.localPreviewUrl) {
+                    if (active) {
+                        setDynamicUrl(firstFile.localPreviewUrl);
+                        setIsLoading(false);
+                    }
+                    return;
+                }
 
-                if (firstFile.localPreviewUrl && firstFile.localPreviewUrl.startsWith('blob:')) {
-                    urlToUse = firstFile.localPreviewUrl;
-                } else if (firstFile.localPreviewUrl && firstFile.localPreviewUrl.startsWith('data:')) {
-                    urlToUse = firstFile.localPreviewUrl;
-                } else {
-                    // Fallback to DB if no local URL
+                // For other types (video, document, article), we must fetch from IndexedDB.
+                try {
                     const dbFiles = await getFilesFromDb(upload.id);
                     const fileObject = dbFiles?.[0];
                     if (fileObject) {
                         objectUrl = URL.createObjectURL(fileObject);
                         pageBlobUrls.current.add(objectUrl);
-                        urlToUse = objectUrl;
+                        if (active) {
+                            setDynamicUrl(objectUrl);
+                        }
+
+                        // For text-based articles, also read the content.
+                        const isTextBased = fileObject.type.startsWith('text/');
+                        if (isTextBased) {
+                            const text = await fileObject.text();
+                            if (active) setTextContent(text);
+                        }
+                    } else {
+                        console.error("Could not load file from DB for preview:", firstFile.file.name);
                     }
-                }
-
-                if (!urlToUse) {
-                    console.error("Could not load file for preview:", firstFile.file.name);
-                    setIsLoading(false);
-                    return;
-                }
-
-                if (active) {
-                    setDynamicUrl(urlToUse);
-                }
-
-                const isTextBased = firstFile.file.type.startsWith('text/');
-                if (isTextBased) {
-                    try {
-                        const text = await (await fetch(urlToUse)).text();
-                        if (active) setTextContent(text);
-                    } catch (e) {
-                         console.error("Failed to fetch content from URL", e);
-                         if (active) setTextContent("Could not load content.");
-                    }
+                } catch (e) {
+                    console.error("Failed to get file from DB for enlarged view", e);
                 }
 
                 if (active) setIsLoading(false);
@@ -291,14 +291,12 @@ export default function ProfilePage() {
 
             return () => {
                 active = false;
-                // Object URLs from this component's scope are revoked here.
-                // Page-level ones are revoked on unmount.
                 if (objectUrl) {
                     URL.revokeObjectURL(objectUrl);
                     pageBlobUrls.current.delete(objectUrl);
                 }
             };
-        }, [firstFile, upload.id]);
+        }, [firstFile, upload.id, upload.type]);
 
 
         if (isLoading) {
@@ -372,7 +370,7 @@ export default function ProfilePage() {
             );
         }
 
-        if (isPdf) {
+        if (isPdf || firstFile.file.name.endsWith('.pdf')) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
@@ -626,3 +624,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
