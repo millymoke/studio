@@ -82,27 +82,8 @@ export default function ProfilePage() {
     const processUploadsWithLocalPreviews = async (uploadsToProcess: Upload[]): Promise<UploadWithLocalPreview[]> => {
         const processed = await Promise.all(uploadsToProcess.map(async (upload) => {
             const filesWithLocalPreviews = await Promise.all(upload.files.map(async (file) => {
-                // If a preview data URL is already in the metadata (for images/covers), use it.
                 if (file.preview) {
                      return { ...file, localPreviewUrl: file.preview };
-                }
-                 if (file.coverPhoto?.preview) {
-                     return { ...file, localPreviewUrl: file.coverPhoto.preview };
-                }
-
-                // Otherwise, generate a blob URL from IndexedDB data.
-                try {
-                    const dbFiles = await getFilesFromDb(upload.id);
-                    if (dbFiles && dbFiles.length > 0) {
-                        const fileObject = dbFiles.find(f => f.name === file.file.name);
-                        if (fileObject) {
-                            const blobUrl = URL.createObjectURL(fileObject);
-                            pageBlobUrls.current.add(blobUrl);
-                            return { ...file, localPreviewUrl: blobUrl };
-                        }
-                    }
-                } catch(e) {
-                     console.error(`Failed to get file ${file.file.name} for upload ${upload.id} from DB`, e);
                 }
                 return { ...file, localPreviewUrl: undefined };
             }));
@@ -172,12 +153,13 @@ export default function ProfilePage() {
 
         setUploads(prev => prev.map(u => {
             if (u.id === updatedUpload.id) {
-                // We need to keep the localPreviewUrl if it exists
-                const existingLocalPreviews = new Map(u.files.map(f => [f.file.name, f.localPreviewUrl]));
-                const newFiles = updatedUpload.files.map(f => ({
-                    ...f,
-                    localPreviewUrl: existingLocalPreviews.get(f.file.name)
-                }));
+                const newFiles = updatedUpload.files.map((updatedFile, index) => {
+                    const originalFile = u.files[index];
+                    return {
+                        ...updatedFile,
+                        localPreviewUrl: originalFile?.localPreviewUrl || updatedFile.preview,
+                    };
+                });
                 return { ...updatedUpload, files: newFiles };
             }
             return u;
@@ -188,7 +170,6 @@ export default function ProfilePage() {
     const handleDeletePost = async () => {
         if (!deletingUploadId) return;
         
-        // Delete from IndexedDB first
         await deleteFilesFromDb(deletingUploadId);
 
         const updatedUploads = allUploadsRef.current.filter((upload: Upload) => upload.id !== deletingUploadId);
@@ -204,7 +185,7 @@ export default function ProfilePage() {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
-        const previewSrc = firstFile.localPreviewUrl;
+        const previewSrc = firstFile.coverPhoto?.preview || firstFile.preview || firstFile.localPreviewUrl;
 
         return (
             <div className="absolute inset-0 bg-muted">
@@ -236,24 +217,27 @@ export default function ProfilePage() {
         const [dynamicUrl, setDynamicUrl] = useState<string | null>(null);
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoading, setIsLoading] = useState(true);
-
+    
         const firstFile = upload.files?.[0];
         const fileType = firstFile?.file.type;
+    
         const isPdf = fileType === 'application/pdf';
         const isText = upload.type === 'article' || fileType?.startsWith('text/');
-
+        const isImage = upload.type === 'image';
+        const isVideo = upload.type === 'video';
+    
         useEffect(() => {
             let active = true;
             let objectUrl: string | null = null;
-
+    
             const loadContent = async () => {
                 if (!firstFile) {
                     setIsLoading(false);
                     return;
                 }
                 setIsLoading(true);
-
-                if (upload.type === 'image' && firstFile.localPreviewUrl) {
+    
+                if (isImage && firstFile.localPreviewUrl) {
                     if (active) {
                         setDynamicUrl(firstFile.localPreviewUrl);
                         setIsLoading(false);
@@ -264,17 +248,15 @@ export default function ProfilePage() {
                 try {
                     const dbFiles = await getFilesFromDb(upload.id);
                     const fileObject = dbFiles?.[0];
-                    if (fileObject) {
+                    if (fileObject && active) {
                         objectUrl = URL.createObjectURL(fileObject);
                         pageBlobUrls.current.add(objectUrl);
-                        if (active) {
-                            setDynamicUrl(objectUrl);
-                            if (isText) {
-                                const text = await fileObject.text();
-                                if (active) setTextContent(text);
-                            }
+                        setDynamicUrl(objectUrl);
+                        if (isText) {
+                            const text = await fileObject.text();
+                            if (active) setTextContent(text);
                         }
-                    } else {
+                    } else if (active) {
                         console.error("Could not load file from DB for preview:", firstFile.file.name);
                     }
                 } catch (e) {
@@ -283,9 +265,9 @@ export default function ProfilePage() {
                     if (active) setIsLoading(false);
                 }
             };
-
+    
             loadContent();
-
+    
             return () => {
                 active = false;
                 if (objectUrl) {
@@ -293,8 +275,8 @@ export default function ProfilePage() {
                     pageBlobUrls.current.delete(objectUrl);
                 }
             };
-        }, [firstFile, upload.id, upload.type, isText]);
-
+        }, [firstFile, upload.id, isImage, isText]);
+    
         if (isLoading) {
             return (
                 <div className="w-full h-full flex items-center justify-center">
@@ -303,17 +285,26 @@ export default function ProfilePage() {
             );
         }
         
-        if (!dynamicUrl) {
+        if (!dynamicUrl && !isImage) {
+            const fileToDownload = firstFile ? firstFile.file : null;
             return (
-                <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                     <h3 className="text-xl font-bold">{upload.title}</h3>
-                    <p className="text-muted-foreground mt-2">Cannot display this file. An error occurred while loading the content.</p>
+                    <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+                     {fileToDownload && (
+                        <Button asChild variant="default" size="lg" className="mt-6">
+                            <a href={dynamicUrl || '#'} download={fileToDownload.name}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download File
+                            </a>
+                        </Button>
+                    )}
                 </div>
             );
         }
 
-        if (upload.type === 'image') {
+        if (isImage) {
             if (upload.displayOption === 'carousel' && upload.files.length > 1) {
                 return (
                     <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
@@ -339,8 +330,8 @@ export default function ProfilePage() {
             return (
                 <div className="flex items-center justify-center h-full">
                     <Image
-                        src={dynamicUrl}
-                        alt={firstFile.altText || upload.title}
+                        src={dynamicUrl || firstFile.localPreviewUrl || ''}
+                        alt={firstFile?.altText || upload.title}
                         width={800}
                         height={1000}
                         className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
@@ -349,11 +340,11 @@ export default function ProfilePage() {
             );
         }
 
-        if (upload.type === 'video') {
+        if (isVideo) {
             return (
                 <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
                     <video
-                        src={dynamicUrl}
+                        src={dynamicUrl!}
                         controls
                         autoPlay
                         poster={firstFile.coverPhoto?.preview}
@@ -369,14 +360,14 @@ export default function ProfilePage() {
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                         <h3 className="font-bold truncate">{upload.title}</h3>
                         <Button asChild variant="outline" size="sm">
-                            <a href={dynamicUrl} download={firstFile.file.name}>
+                            <a href={dynamicUrl!} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download
                             </a>
                         </Button>
                     </div>
                     <div className="flex-grow w-full h-full">
-                        <embed src={dynamicUrl} type={fileType} width="100%" height="100%" />
+                        <embed src={dynamicUrl!} type={fileType} width="100%" height="100%" />
                     </div>
                 </div>
             );
@@ -388,7 +379,7 @@ export default function ProfilePage() {
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                         <h3 className="font-bold truncate">{upload.title}</h3>
                         <Button asChild variant="outline" size="sm">
-                            <a href={dynamicUrl} download={firstFile.file.name}>
+                            <a href={dynamicUrl!} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download
                             </a>
@@ -403,29 +394,20 @@ export default function ProfilePage() {
             );
         }
         
-        if (upload.type === 'document') {
-             return (
-                <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                    <h3 className="text-xl font-bold">{upload.title}</h3>
-                    <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
-                    <Button asChild variant="default" size="lg" className="mt-6">
-                        <a href={dynamicUrl} download={firstFile.file.name}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download File
-                        </a>
-                    </Button>
-                </div>
-            );
-        }
-
+        // Fallback for other document types like .docx, etc.
         return (
-            <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-                <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-bold">{upload.title}</h3>
-                <p className="text-muted-foreground mt-2">Cannot display this file type.</p>
-            </div>
-        );
+           <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+               <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+               <h3 className="text-xl font-bold">{upload.title}</h3>
+               <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+               <Button asChild variant="default" size="lg" className="mt-6">
+                   <a href={dynamicUrl!} download={firstFile.file.name}>
+                       <Download className="mr-2 h-4 w-4" />
+                       Download File
+                   </a>
+               </Button>
+           </div>
+       );
     };
 
 
@@ -444,7 +426,7 @@ export default function ProfilePage() {
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
                                     "p-0 border-0 bg-transparent shadow-none w-auto",
-                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document' || viewingUpload.files[0]?.file.type === 'application/pdf') 
+                                    (viewingUpload.type === 'article' || viewingUpload.files[0]?.file.type === 'application/pdf') 
                                       ? "max-w-6xl h-[90vh]"
                                       : "max-w-6xl flex items-center justify-center"
                                 )}>
