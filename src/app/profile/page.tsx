@@ -308,7 +308,7 @@ export default function ProfilePage() {
         }
         
         if (!firstFile || !dynamicUrl) {
-            // General fallback for when no file or URL could be determined
+            // This fallback is hit if dynamicUrl is not loaded, e.g. file missing from DB.
             return (
                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
@@ -455,7 +455,7 @@ export default function ProfilePage() {
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
                                     "p-0 border-0 bg-transparent shadow-none w-auto",
-                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document') 
+                                    (viewingUpload.type === 'article' || viewingUpload.type === 'document' || viewingUpload.files[0]?.file.type === 'application/pdf') 
                                       ? "max-w-4xl h-[90vh]" 
                                       : "max-w-6xl flex items-center justify-center"
                                 )}>
@@ -626,5 +626,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
