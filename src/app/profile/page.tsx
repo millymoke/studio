@@ -253,7 +253,6 @@ export default function ProfilePage() {
                 }
                 setIsLoading(true);
 
-                // For images, the localPreviewUrl is a data: URL and is sufficient.
                 if (upload.type === 'image' && firstFile.localPreviewUrl) {
                     if (active) {
                         setDynamicUrl(firstFile.localPreviewUrl);
@@ -261,8 +260,7 @@ export default function ProfilePage() {
                     }
                     return;
                 }
-
-                // For other types (video, document, article), fetch from IndexedDB.
+                
                 try {
                     const dbFiles = await getFilesFromDb(upload.id);
                     const fileObject = dbFiles?.[0];
@@ -271,12 +269,10 @@ export default function ProfilePage() {
                         pageBlobUrls.current.add(objectUrl);
                         if (active) {
                             setDynamicUrl(objectUrl);
-                        }
-                        
-                        // For text-based articles, also read the content.
-                        if (isText) {
-                            const text = await fileObject.text();
-                            if (active) setTextContent(text);
+                            if (isText) {
+                                const text = await fileObject.text();
+                                if (active) setTextContent(text);
+                            }
                         }
                     } else {
                         console.error("Could not load file from DB for preview:", firstFile.file.name);
@@ -307,8 +303,7 @@ export default function ProfilePage() {
             );
         }
         
-        if (!firstFile || !dynamicUrl) {
-            // This fallback is hit if dynamicUrl is not loaded, e.g. file missing from DB.
+        if (!dynamicUrl) {
             return (
                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
@@ -318,7 +313,6 @@ export default function ProfilePage() {
             );
         }
 
-        // --- Image Viewer ---
         if (upload.type === 'image') {
             if (upload.displayOption === 'carousel' && upload.files.length > 1) {
                 return (
@@ -355,7 +349,6 @@ export default function ProfilePage() {
             );
         }
 
-        // --- Video Viewer ---
         if (upload.type === 'video') {
             return (
                 <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
@@ -370,7 +363,6 @@ export default function ProfilePage() {
             );
         }
         
-        // --- PDF Viewer ---
         if (isPdf) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
@@ -384,13 +376,12 @@ export default function ProfilePage() {
                         </Button>
                     </div>
                     <div className="flex-grow w-full h-full">
-                        <embed src={`${dynamicUrl}#toolbar=1`} type={fileType} width="100%" height="100%" />
+                        <embed src={dynamicUrl} type={fileType} width="100%" height="100%" />
                     </div>
                 </div>
             );
         }
 
-        // --- Article / Text Viewer ---
         if (isText) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
@@ -412,7 +403,6 @@ export default function ProfilePage() {
             );
         }
         
-        // --- Fallback for non-previewable documents (e.g., Word docs) ---
         if (upload.type === 'document') {
              return (
                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
@@ -429,7 +419,6 @@ export default function ProfilePage() {
             );
         }
 
-        // --- Final Fallback ---
         return (
             <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                 <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
@@ -456,7 +445,7 @@ export default function ProfilePage() {
                                 <DialogContent className={cn(
                                     "p-0 border-0 bg-transparent shadow-none w-auto",
                                     (viewingUpload.type === 'article' || viewingUpload.type === 'document' || viewingUpload.files[0]?.file.type === 'application/pdf') 
-                                      ? "max-w-4xl h-[90vh]" 
+                                      ? "max-w-6xl h-[90vh]"
                                       : "max-w-6xl flex items-center justify-center"
                                 )}>
                                     <DialogHeader>
@@ -626,3 +615,5 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+    
