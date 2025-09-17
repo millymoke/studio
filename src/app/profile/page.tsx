@@ -21,7 +21,11 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { getTemporaryFile } from '@/components/upload-form'; // Import the helper
+import { getFilesFromDb, deleteFilesFromDb } from '@/lib/db';
+
+interface UploadWithLocalPreview extends Upload {
+    files: Array<UploadedFile & { localPreviewUrl?: string }>;
+}
 
 export default function ProfilePage() {
     const user = { 
@@ -31,25 +35,23 @@ export default function ProfilePage() {
         avatar: 'https://picsum.photos/200'
     };
 
-    const [uploads, setUploads] = useState<Upload[]>([]);
-    const [savedUploads, setSavedUploads] = useState<Upload[]>([]);
+    const [uploads, setUploads] = useState<UploadWithLocalPreview[]>([]);
+    const [savedUploads, setSavedUploads] = useState<UploadWithLocalPreview[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
     const observer = useRef<IntersectionObserver>();
     const [editingUpload, setEditingUpload] = useState<Upload | null>(null);
     const [deletingUploadId, setDeletingUploadId] = useState<string | null>(null);
-    const [viewingUpload, setViewingUpload] = useState<Upload | null>(null);
+    const [viewingUpload, setViewingUpload] = useState<UploadWithLocalPreview | null>(null);
     const [isClient, setIsClient] = useState(false);
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
 
-    // This map will hold temporary blob URLs created on this page
     const pageBlobUrls = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         setIsClient(true);
-        // Clean up blob URLs created on this page when the component unmounts
         return () => {
             pageBlobUrls.current.forEach(url => {
                 if (url.startsWith('blob:')) {
@@ -66,8 +68,7 @@ export default function ProfilePage() {
             try {
                 const parsed = JSON.parse(storedUploads) as Upload[];
                 if (Array.isArray(parsed)) {
-                    // This sorting ensures newest uploads appear first
-                    return parsed.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+                    return parsed.sort((a, b) => parseInt(b.id.split('-')[0]) - parseInt(a.id.split('-')[0]));
                 }
                 return [];
             } catch (e) {
@@ -78,39 +79,47 @@ export default function ProfilePage() {
         return [];
     }, []);
 
-    const loadInitialData = useCallback(() => {
+    const processUploadsWithLocalPreviews = async (uploadsToProcess: Upload[]): Promise<UploadWithLocalPreview[]> => {
+        const processed = await Promise.all(uploadsToProcess.map(async (upload) => {
+            const filesWithLocalPreviews = await Promise.all(upload.files.map(async (file) => {
+                if (upload.type === 'image' || file.coverPhoto?.preview) {
+                     return { ...file, localPreviewUrl: file.preview || file.coverPhoto?.preview };
+                }
+
+                try {
+                    const dbFiles = await getFilesFromDb(upload.id);
+                    if (dbFiles && dbFiles.length > 0) {
+                        const fileObject = dbFiles.find(f => f.name === file.file.name);
+                        if (fileObject) {
+                            const blobUrl = URL.createObjectURL(fileObject);
+                            pageBlobUrls.current.add(blobUrl);
+                            return { ...file, localPreviewUrl: blobUrl };
+                        }
+                    }
+                } catch(e) {
+                     console.error(`Failed to get file ${file.file.name} for upload ${upload.id} from DB`, e);
+                }
+                return { ...file, localPreviewUrl: undefined };
+            }));
+            return { ...upload, files: filesWithLocalPreviews };
+        }));
+        return processed;
+    };
+
+
+    const loadInitialData = useCallback(async () => {
         setIsLoading(true);
         const storedUploads = loadUploadsFromStorage();
         allUploadsRef.current = storedUploads;
         
         const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
-        setUploads(initialBatch);
-
-        // Generate mock saved uploads only if there are no real uploads
-        if (storedUploads.length === 0) {
-            const mockSavedUploads = Array.from({ length: BATCH_SIZE }).map((_, i) => ({
-                id: `mock-saved-${i}`,
-                type: 'image' as const,
-                title: `Saved Content ${i}`,
-                description: 'A captivating piece of content I saved.',
-                link: '',
-                tags: ['saved', 'inspiration'],
-                files: [{
-                    file: { name: `file${i}.jpg`, type: 'image/jpeg', size: 1234 },
-                    preview: `https://picsum.photos/800/1000?random=${i + 200}`, // Using picsum for mock data
-                    altText: 'A saved piece of beautiful content',
-                    objectPosition: 'center',
-                }],
-                displayOption: 'individual' as const,
-            }));
-            setSavedUploads(mockSavedUploads);
-        } else {
-            setSavedUploads([]);
-        }
-
+        const initialBatchWithPreviews = await processUploadsWithLocalPreviews(initialBatch);
+        setUploads(initialBatchWithPreviews);
+        
         setHasMore(allUploadsRef.current.length > BATCH_SIZE);
         setIsLoading(false);
     }, [loadUploadsFromStorage]);
+
 
     useEffect(() => {
         if (isClient) {
@@ -125,17 +134,17 @@ export default function ProfilePage() {
         }
     }, [isClient, loadInitialData]);
 
-    const loadMoreUploads = useCallback(() => {
+    const loadMoreUploads = useCallback(async () => {
         if (isLoading || !hasMore || activeTab !== 'uploads') return;
         setIsLoading(true);
 
-        setTimeout(() => {
-            const currentLength = uploads.length;
-            const nextBatch = allUploadsRef.current.slice(currentLength, currentLength + BATCH_SIZE);
-            setUploads(prev => [...prev, ...nextBatch]);
-            setHasMore(currentLength + nextBatch.length < allUploadsRef.current.length);
-            setIsLoading(false);
-        }, 500);
+        const currentLength = uploads.length;
+        const nextBatch = allUploadsRef.current.slice(currentLength, currentLength + BATCH_SIZE);
+        const nextBatchWithPreviews = await processUploadsWithLocalPreviews(nextBatch);
+        
+        setUploads(prev => [...prev, ...nextBatchWithPreviews]);
+        setHasMore(currentLength + nextBatch.length < allUploadsRef.current.length);
+        setIsLoading(false);
     }, [isLoading, hasMore, uploads.length, activeTab]);
 
     const lastUploadElementRef = useCallback((node: HTMLDivElement) => {
@@ -155,42 +164,46 @@ export default function ProfilePage() {
         );
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
         allUploadsRef.current = updatedUploads;
-        setUploads(prev => prev.map(u => u.id === updatedUpload.id ? updatedUpload : u));
+
+        setUploads(prev => prev.map(u => {
+            if (u.id === updatedUpload.id) {
+                // We need to keep the localPreviewUrl if it exists
+                const existingLocalPreviews = new Map(u.files.map(f => [f.file.name, f.localPreviewUrl]));
+                const newFiles = updatedUpload.files.map(f => ({
+                    ...f,
+                    localPreviewUrl: existingLocalPreviews.get(f.file.name)
+                }));
+                return { ...updatedUpload, files: newFiles };
+            }
+            return u;
+        }));
         setEditingUpload(null);
     };
 
-    const handleDeletePost = () => {
+    const handleDeletePost = async () => {
         if (!deletingUploadId) return;
         
-        const uploadToDelete = allUploadsRef.current.find(u => u.id === deletingUploadId);
-        if (uploadToDelete) {
-            uploadToDelete.files.forEach(file => {
-                // The file might be held in the temporary global storage.
-                // We don't need to do anything with that, just revoke the URL if it's a blob url
-                if(file.preview.startsWith('blob:')) {
-                    // Note: The actual file in temporaryFileStorage is not deleted here.
-                    // This is acceptable for a prototype, but a production app would need a cleanup mechanism.
-                }
-            });
-        }
-        
+        // Delete from IndexedDB first
+        await deleteFilesFromDb(deletingUploadId);
+
         const updatedUploads = allUploadsRef.current.filter((upload: Upload) => upload.id !== deletingUploadId);
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
         allUploadsRef.current = updatedUploads;
+
         setUploads(prev => prev.filter(u => u.id !== deletingUploadId));
         setDeletingUploadId(null);
         setEditingUpload(null);
     };
     
-    const renderUploadContent = (upload: Upload) => {
+    const renderUploadContent = (upload: UploadWithLocalPreview) => {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
 
-        const previewSrc = firstFile.coverPhoto?.preview || (upload.type === 'image' ? firstFile.preview : undefined);
+        const previewSrc = firstFile.coverPhoto?.preview || firstFile.localPreviewUrl;
 
         return (
             <div className="absolute inset-0 bg-muted">
-                {previewSrc && previewSrc.startsWith('data:image') ? (
+                {previewSrc ? (
                     <Image 
                         src={previewSrc}
                         alt={upload.title}
@@ -214,7 +227,7 @@ export default function ProfilePage() {
         );
     }
     
-    const EnlargedContentView = ({ upload }: { upload: Upload }) => {
+    const EnlargedContentView = ({ upload }: { upload: UploadWithLocalPreview }) => {
         const [dynamicUrl, setDynamicUrl] = useState<string | null>(null);
         const [textContent, setTextContent] = useState<string | null>(null);
         const [isLoading, setIsLoading] = useState(true);
@@ -233,26 +246,27 @@ export default function ProfilePage() {
 
                 setIsLoading(true);
 
-                let fileToLoad: File | undefined;
-                let urlToUse: string;
+                let urlToUse: string | undefined;
 
-                if (firstFile.preview.startsWith('data:')) {
-                    urlToUse = firstFile.preview;
-                } else if (firstFile.preview.startsWith('blob:')) {
-                    fileToLoad = getTemporaryFile(firstFile.preview);
-                    if (fileToLoad) {
-                        objectUrl = URL.createObjectURL(fileToLoad);
-                        pageBlobUrls.current.add(objectUrl); // Track for cleanup
-                        urlToUse = objectUrl;
-                    } else {
-                        console.error("Could not find temporary file for blob URL:", firstFile.preview);
-                        setIsLoading(false);
-                        return;
-                    }
+                if (firstFile.localPreviewUrl && firstFile.localPreviewUrl.startsWith('blob:')) {
+                    urlToUse = firstFile.localPreviewUrl;
+                } else if (firstFile.localPreviewUrl && firstFile.localPreviewUrl.startsWith('data:')) {
+                    urlToUse = firstFile.localPreviewUrl;
                 } else {
-                     console.error("Invalid preview URL format:", firstFile.preview);
-                     setIsLoading(false);
-                     return;
+                    // Fallback to DB if no local URL
+                    const dbFiles = await getFilesFromDb(upload.id);
+                    const fileObject = dbFiles?.[0];
+                    if (fileObject) {
+                        objectUrl = URL.createObjectURL(fileObject);
+                        pageBlobUrls.current.add(objectUrl);
+                        urlToUse = objectUrl;
+                    }
+                }
+
+                if (!urlToUse) {
+                    console.error("Could not load file for preview:", firstFile.file.name);
+                    setIsLoading(false);
+                    return;
                 }
 
                 if (active) {
@@ -262,7 +276,7 @@ export default function ProfilePage() {
                 const isTextBased = firstFile.file.type.startsWith('text/');
                 if (isTextBased) {
                     try {
-                        const text = await (fileToLoad || (await fetch(urlToUse)).blob()).text();
+                        const text = await (await fetch(urlToUse)).text();
                         if (active) setTextContent(text);
                     } catch (e) {
                          console.error("Failed to fetch content from URL", e);
@@ -277,12 +291,15 @@ export default function ProfilePage() {
 
             return () => {
                 active = false;
+                // Object URLs from this component's scope are revoked here.
+                // Page-level ones are revoked on unmount.
                 if (objectUrl) {
                     URL.revokeObjectURL(objectUrl);
                     pageBlobUrls.current.delete(objectUrl);
                 }
             };
-        }, [firstFile]);
+        }, [firstFile, upload.id]);
+
 
         if (isLoading) {
             return (
@@ -297,13 +314,13 @@ export default function ProfilePage() {
                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                     <h3 className="text-xl font-bold">{upload.title}</h3>
-                    <p className="text-muted-foreground mt-2">Could not load preview for this file.</p>
+                    <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
                 </div>
             );
         }
         
         const isPdf = firstFile.file.type === 'application/pdf';
-        const isText = firstFile.file.type.startsWith('text/');
+        const isText = upload.type === 'article' || firstFile.file.type.startsWith('text/');
         
         if (upload.type === 'image') {
             if (upload.displayOption === 'carousel' && upload.files.length > 1) {
@@ -313,7 +330,7 @@ export default function ProfilePage() {
                             {upload.files.map((file, index) => (
                                 <CarouselItem key={index} className="flex items-center justify-center">
                                     <Image
-                                        src={file.preview || "https://picsum.photos/800/1000"}
+                                        src={file.localPreviewUrl || "https://picsum.photos/800/1000"}
                                         alt={file.altText || upload.title}
                                         width={800}
                                         height={1000}
@@ -423,7 +440,7 @@ export default function ProfilePage() {
     };
 
 
-    const renderGrid = (posts: Upload[], isMyUploads: boolean) => (
+    const renderGrid = (posts: UploadWithLocalPreview[], isMyUploads: boolean) => (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
             {posts.map((upload, index) => {
                 const isLastElement = posts.length === index + 1 && isMyUploads;
@@ -595,7 +612,7 @@ export default function ProfilePage() {
                         <AlertDialogHeader>
                             <AlertDialogTitleComponent>Are you absolutely sure?</AlertDialogTitleComponent>
                             <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete your post.
+                                This action cannot be undone. This will permanently delete your post and its associated files from your browser's storage.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -609,5 +626,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    

@@ -36,15 +36,14 @@ import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
+import { saveFilesToDb } from "@/lib/db";
 
-// This will hold our temporary files to avoid storing them in localStorage
-const temporaryFileStorage = new Map<string, File>();
 
 const fileSchema = z.object({
   file: z.any(), // instance of File
   altText: z.string().optional(),
   coverPhoto: z.object({ file: z.any(), preview: z.string() }).optional(),
-  preview: z.string(), // blob URL
+  preview: z.string(), // data: or blob: URL for immediate preview
 });
 
 const formSchema = z.object({
@@ -95,13 +94,13 @@ export function UploadForm() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesPromises = Array.from(e.target.files).map(async file => {
-          const preview = URL.createObjectURL(file);
-           // Store the file object in our temporary client-side storage
-          temporaryFileStorage.set(preview, file);
+          // For images, we can use a data URL for the preview.
+          // For other types, a blob URL is better to avoid holding large data in memory here.
+          const preview = file.type.startsWith('image/') ? await readFileAsDataURL(file) : URL.createObjectURL(file);
           return {
               file: file,
               altText: '',
-              preview: preview, // This is a blob URL
+              preview: preview,
           }
       });
       const newFiles = await Promise.all(newFilesPromises);
@@ -139,18 +138,14 @@ export function UploadForm() {
       const coverFile = fileWithValue.coverPhoto.file as File;
       coverPhotoData = {
         file: { name: coverFile.name, type: coverFile.type, size: coverFile.size },
-        // Cover photos are small and should be persisted as data URLs
+        // Convert cover photo to dataURL to be stored in localStorage metadata.
         preview: await readFileAsDataURL(coverFile),
       };
     }
     
-    // The preview is the blob URL we already created. We pass it through directly.
-    // The actual file content is NOT stored in localStorage.
-    // We will regenerate a new blob URL on the profile page from the temporaryFileStorage.
-    // For a real app, this would be a URL to a cloud storage bucket.
     return {
       file: serializableFile,
-      preview: fileWithValue.preview, // This is the blob: URL
+      preview: originalFile.type.startsWith('image/') ? await readFileAsDataURL(originalFile) : '', // Only store image previews in metadata
       altText: fileWithValue.altText,
       coverPhoto: coverPhotoData,
       objectPosition: 'center',
@@ -163,6 +158,7 @@ export function UploadForm() {
     try {
         const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
         const newUploads: Upload[] = [];
+        const filesToSave: {id: string, files: File[]}[] = [];
 
         if (values.displayOption === 'individual') {
             for (const fileWithValue of values.files) {
@@ -179,6 +175,7 @@ export function UploadForm() {
                     files: [fileData]
                 };
                 newUploads.push(newUpload);
+                filesToSave.push({ id: newUpload.id, files: [originalFile] });
             }
         } else {
             const processedFiles = await Promise.all(values.files.map(processFileForStorage));
@@ -195,10 +192,16 @@ export function UploadForm() {
                 files: processedFiles
             };
             newUploads.push(newUpload);
+            const originalFiles = values.files.map(f => f.file as File);
+            filesToSave.push({ id: newUpload.id, files: originalFiles });
         }
 
-        // IMPORTANT: We are now only storing the METADATA. The file content is held
-        // in the `temporaryFileStorage` map and is NOT persisted in localStorage.
+        // Save file content to IndexedDB
+        for (const item of filesToSave) {
+          await saveFilesToDb(item.id, item.files);
+        }
+
+        // Save METADATA to localStorage
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([...newUploads, ...existingUploads]));
 
         toast({
@@ -226,7 +229,7 @@ export function UploadForm() {
     const coverPhotoData = field.coverPhoto;
     const fileType = getFileType(file);
     
-    // The field.preview is now always a blob URL which is fine for previews here.
+    // The field.preview can be a blob: or data: URL which is fine for previews here.
     const previewSrc = coverPhotoData?.preview || field.preview;
 
     if (fileType === 'image') {
@@ -256,7 +259,7 @@ export function UploadForm() {
         <FormField
           control={form.control}
           name="files"
-          render={() => (
+          render={({ field }) => (
             <FormItem>
               <FormLabel>Files</FormLabel>
               <FormControl>
@@ -489,17 +492,3 @@ export function UploadForm() {
     </Form>
   );
 }
-
-// This is a global map to hold file data for the session.
-// In a real app, this would be handled by a proper state management library or backend.
-if (typeof window !== 'undefined') {
-  (window as any).temporaryFileStorage = (window as any).temporaryFileStorage || new Map<string, File>();
-}
-
-export function getTemporaryFile(blobUrl: string): File | undefined {
-  if (typeof window !== 'undefined') {
-    return (window as any).temporaryFileStorage.get(blobUrl);
-  }
-  return undefined;
-}
-    

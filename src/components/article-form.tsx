@@ -25,6 +25,7 @@ import { Loader2 } from "lucide-react";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
+import { saveFilesToDb } from "@/lib/db";
 
 
 const formSchema = z.object({
@@ -36,11 +37,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-// This is a global map to hold file data for the session.
-if (typeof window !== 'undefined') {
-  (window as any).temporaryFileStorage = (window as any).temporaryFileStorage || new Map<string, File>();
-}
 
 export function ArticleForm() {
   const { toast } = useToast();
@@ -92,23 +88,19 @@ export function ArticleForm() {
          };
       }
       
-      const articleBlob = new Blob([values.content], { type: 'text/plain;charset=utf-f' });
+      const articleBlob = new Blob([values.content], { type: 'text/plain;charset=utf-8' });
       const articleFile = new File([articleBlob], `${values.title.replace(/\s+/g, '-')}.txt`, { type: 'text/plain;charset=utf-8' });
-      
-      // Create a temporary blob URL for the article content
-      const articlePreview = URL.createObjectURL(articleFile);
-
-      // Store the actual file in our temporary global storage
-      (window as any).temporaryFileStorage.set(articlePreview, articleFile);
 
       const serializableArticleFile: SerializableFile = {
         name: articleFile.name,
         type: articleFile.type,
         size: articleFile.size,
       }
+      
+      const newArticleId = Date.now().toString();
 
       const newArticle: Upload = {
-        id: Date.now().toString(),
+        id: newArticleId,
         type: 'article',
         title: values.title,
         description: values.content.substring(0, 100), // Use snippet of content as description
@@ -118,15 +110,18 @@ export function ArticleForm() {
         files: [
             {
                 file: serializableArticleFile,
-                preview: articlePreview, // This is the blob: URL
+                preview: '', // Preview for text article isn't stored in metadata
                 coverPhoto: coverPhotoData,
                 objectPosition: 'center',
             }
         ]
       }
+      
+      // Save the actual article File object to IndexedDB
+      await saveFilesToDb(newArticleId, [articleFile]);
 
+      // Save the metadata to localStorage
       const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
-      // We only store metadata in localStorage now
       localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newArticle, ...existingUploads]));
 
       toast({
@@ -239,4 +234,3 @@ export function ArticleForm() {
     </Form>
   );
 }
-    

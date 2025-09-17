@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateOneTimeLink } from "@/ai/flows/secure-file-sharing";
 import type { Upload } from "@/lib/types";
 import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
+import { getFilesFromDb } from "@/lib/db";
 
 
 import { Button } from "@/components/ui/button";
@@ -86,20 +87,16 @@ export function OneTimeLinkForm() {
         fileDataUri = await readFileAsDataURL(file);
       } else if (activeTab === "select" && values.selectedUpload) {
         const selected = userUploads.find(u => u.id === values.selectedUpload);
-        if (!selected || !selected.files[0]?.preview) {
+        if (!selected || !selected.files[0]) {
              throw new Error("Selected upload not found or is invalid.");
         }
         
-        // If it's a blob URL, we need to fetch and convert it to a data URL for the AI flow.
-        if (selected.files[0].preview.startsWith('blob:')) {
-            const response = await fetch(selected.files[0].preview);
-            const blob = await response.blob();
-            const tempFile = new File([blob], selected.files[0].file.name, { type: selected.files[0].file.type });
-            fileDataUri = await readFileAsDataURL(tempFile);
-        } else {
-            // It's already a data URL
-            fileDataUri = selected.files[0].preview;
+        const dbFiles = await getFilesFromDb(selected.id);
+        if (!dbFiles || dbFiles.length === 0) {
+            throw new Error("Could not find the file data for the selected upload.");
         }
+
+        fileDataUri = await readFileAsDataURL(dbFiles[0]);
 
       } else {
         form.setError('file', { message: 'Please select or upload a file.' });
@@ -149,7 +146,7 @@ export function OneTimeLinkForm() {
 
   const renderUploadPreview = (upload: Upload) => {
      const firstFile = upload.files?.[0];
-     const previewSrc = firstFile?.coverPhoto?.preview || (upload.type === 'image' ? firstFile?.preview : undefined);
+     const previewSrc = firstFile?.coverPhoto?.preview || firstFile?.preview;
      switch (upload.type) {
         case 'image':
             return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" data-ai-hint="fashion outdoor"/> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>;

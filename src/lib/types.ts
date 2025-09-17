@@ -9,8 +9,8 @@ export interface SerializableFile {
 // Represents a file that has been uploaded and stored, ready for serialization
 export interface UploadedFile {
     file: SerializableFile;
-    // The preview is now a temporary blob URL for all file types except for small images
-    // which might be data URLs. This avoids localStorage quota issues.
+    // The preview is a data URL for images, stored in localStorage for quick grid view.
+    // For other types, this might be empty, as we'll generate blob URLs from IndexedDB on the fly.
     preview: string; 
     altText?: string;
     objectPosition?: string; // e.g. 'top', 'center', 'bottom'
@@ -30,5 +30,3 @@ export interface Upload {
   files: UploadedFile[];
   displayOption: 'individual' | 'carousel';
 }
-
-    
