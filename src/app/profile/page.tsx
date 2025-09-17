@@ -238,6 +238,9 @@ export default function ProfilePage() {
         const [isLoading, setIsLoading] = useState(true);
 
         const firstFile = upload.files?.[0];
+        const fileType = firstFile?.file.type;
+        const isPdf = fileType === 'application/pdf';
+        const isText = upload.type === 'article' || fileType?.startsWith('text/');
 
         useEffect(() => {
             let active = true;
@@ -248,7 +251,6 @@ export default function ProfilePage() {
                     setIsLoading(false);
                     return;
                 }
-
                 setIsLoading(true);
 
                 // For images, the localPreviewUrl is a data: URL and is sufficient.
@@ -260,7 +262,7 @@ export default function ProfilePage() {
                     return;
                 }
 
-                // For other types (video, document, article), we must fetch from IndexedDB.
+                // For other types (video, document, article), fetch from IndexedDB.
                 try {
                     const dbFiles = await getFilesFromDb(upload.id);
                     const fileObject = dbFiles?.[0];
@@ -270,10 +272,9 @@ export default function ProfilePage() {
                         if (active) {
                             setDynamicUrl(objectUrl);
                         }
-
+                        
                         // For text-based articles, also read the content.
-                        const isTextBased = fileObject.type.startsWith('text/');
-                        if (isTextBased) {
+                        if (isText) {
                             const text = await fileObject.text();
                             if (active) setTextContent(text);
                         }
@@ -282,9 +283,9 @@ export default function ProfilePage() {
                     }
                 } catch (e) {
                     console.error("Failed to get file from DB for enlarged view", e);
+                } finally {
+                    if (active) setIsLoading(false);
                 }
-
-                if (active) setIsLoading(false);
             };
 
             loadContent();
@@ -296,33 +297,31 @@ export default function ProfilePage() {
                     pageBlobUrls.current.delete(objectUrl);
                 }
             };
-        }, [firstFile, upload.id, upload.type]);
-
+        }, [firstFile, upload.id, upload.type, isText]);
 
         if (isLoading) {
             return (
                 <div className="w-full h-full flex items-center justify-center">
                     <Loader2 className="w-12 h-12 animate-spin text-foreground" />
                 </div>
-            )
+            );
         }
         
         if (!firstFile || !dynamicUrl) {
+            // General fallback for when no file or URL could be determined
             return (
                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                     <h3 className="text-xl font-bold">{upload.title}</h3>
-                    <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+                    <p className="text-muted-foreground mt-2">Cannot display this file. An error occurred while loading the content.</p>
                 </div>
             );
         }
-        
-        const isPdf = firstFile.file.type === 'application/pdf';
-        const isText = upload.type === 'article' || firstFile.file.type.startsWith('text/');
-        
+
+        // --- Image Viewer ---
         if (upload.type === 'image') {
             if (upload.displayOption === 'carousel' && upload.files.length > 1) {
-                    return (
+                return (
                     <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
                         <CarouselContent>
                             {upload.files.map((file, index) => (
@@ -356,10 +355,11 @@ export default function ProfilePage() {
             );
         }
 
+        // --- Video Viewer ---
         if (upload.type === 'video') {
             return (
                 <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
-                        <video
+                    <video
                         src={dynamicUrl}
                         controls
                         autoPlay
@@ -369,8 +369,9 @@ export default function ProfilePage() {
                 </div>
             );
         }
-
-        if (isPdf || firstFile.file.name.endsWith('.pdf')) {
+        
+        // --- PDF Viewer ---
+        if (isPdf) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
@@ -383,12 +384,13 @@ export default function ProfilePage() {
                         </Button>
                     </div>
                     <div className="flex-grow w-full h-full">
-                        <embed src={dynamicUrl} type={firstFile.file.type} width="100%" height="100%" />
+                        <embed src={`${dynamicUrl}#toolbar=1`} type={fileType} width="100%" height="100%" />
                     </div>
                 </div>
             );
         }
 
+        // --- Article / Text Viewer ---
         if (isText) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
@@ -409,25 +411,25 @@ export default function ProfilePage() {
                 </div>
             );
         }
-
-        // Fallback for non-previewable documents
-        if (upload.type === 'document' || upload.type === 'article') {
-            return (
+        
+        // --- Fallback for non-previewable documents (e.g., Word docs) ---
+        if (upload.type === 'document') {
+             return (
                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                     <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
                     <h3 className="text-xl font-bold">{upload.title}</h3>
                     <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
-                    <Button asChild variant="outline" size="sm" className="mt-4">
+                    <Button asChild variant="default" size="lg" className="mt-6">
                         <a href={dynamicUrl} download={firstFile.file.name}>
                             <Download className="mr-2 h-4 w-4" />
-                            Download
+                            Download File
                         </a>
                     </Button>
                 </div>
             );
         }
 
-        // General fallback
+        // --- Final Fallback ---
         return (
             <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
                 <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
