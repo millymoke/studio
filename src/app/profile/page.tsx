@@ -220,15 +220,14 @@ export default function ProfilePage() {
         const [error, setError] = useState<string | null>(null);
     
         const firstFile = upload.files?.[0];
-        if (!firstFile) return null;
-    
-        const fileType = firstFile.file.type;
+        
         const isImage = upload.type === 'image';
         const isVideo = upload.type === 'video';
-        const isPdf = fileType === 'application/pdf';
-        const isText = upload.type === 'article' || fileType?.startsWith('text/');
+        const isPdf = firstFile?.file.type === 'application/pdf';
+        const isText = upload.type === 'article' || firstFile?.file.type?.startsWith('text/');
         const isViewableDocument = isPdf || isText;
-    
+        const isDownloadOnly = upload.type === 'document' && !isViewableDocument;
+
         useEffect(() => {
             let active = true;
             let objectUrl: string | null = null;
@@ -238,15 +237,14 @@ export default function ProfilePage() {
                     setIsLoading(false);
                     return;
                 }
-    
-                // For images, we can use the local preview URL directly.
+
+                // For images, we can use the local preview URL directly if available.
                 if (isImage && firstFile.localPreviewUrl) {
                     setDynamicUrl(firstFile.localPreviewUrl);
                     setIsLoading(false);
                     return;
                 }
                 
-                // For other types, fetch from DB.
                 setIsLoading(true);
                 setError(null);
     
@@ -266,7 +264,13 @@ export default function ProfilePage() {
                             if (active) setTextContent(text);
                         }
                     } else {
-                        throw new Error("File data could not be retrieved from the database.");
+                        // For images that might not be in DB (e.g., from older implementation),
+                        // but have a data URL in metadata.
+                        if (isImage && firstFile.preview.startsWith('data:')) {
+                            setDynamicUrl(firstFile.preview);
+                        } else {
+                            throw new Error("File data could not be retrieved from the database.");
+                        }
                     }
                 } catch (e) {
                     console.error("Failed to load file for enlarged view", e);
@@ -306,6 +310,22 @@ export default function ProfilePage() {
                 </div>
             );
         }
+
+        if (!dynamicUrl) {
+             return (
+                 <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                    <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-bold">{upload.title}</h3>
+                    <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+                    <Button asChild variant="default" size="lg" className="mt-6">
+                        <a href="#">
+                           <Download className="mr-2 h-4 w-4" />
+                           Download Unavailable
+                        </a>
+                    </Button>
+                </div>
+            );
+        }
         
         if (isImage) {
             if (upload.displayOption === 'carousel' && upload.files.length > 1) {
@@ -333,7 +353,7 @@ export default function ProfilePage() {
             return (
                 <div className="flex items-center justify-center h-full">
                     <Image
-                        src={dynamicUrl || firstFile.localPreviewUrl || ''}
+                        src={dynamicUrl}
                         alt={firstFile?.altText || upload.title}
                         width={800}
                         height={1000}
@@ -343,7 +363,7 @@ export default function ProfilePage() {
             );
         }
 
-        if (isVideo && dynamicUrl) {
+        if (isVideo) {
             return (
                 <div className="w-full max-w-4xl aspect-video bg-black rounded-md flex items-center justify-center">
                     <video
@@ -357,7 +377,7 @@ export default function ProfilePage() {
             );
         }
         
-        if (isPdf && dynamicUrl) {
+        if (isPdf) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
@@ -370,13 +390,13 @@ export default function ProfilePage() {
                         </Button>
                     </div>
                     <div className="flex-grow w-full h-full">
-                        <embed src={dynamicUrl} type={fileType} width="100%" height="100%" />
+                        <embed src={dynamicUrl} type={firstFile.file.type} width="100%" height="100%" />
                     </div>
                 </div>
             );
         }
 
-        if (isText && dynamicUrl) {
+        if (isText) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
@@ -398,19 +418,30 @@ export default function ProfilePage() {
         }
         
         // Fallback for non-viewable types like .docx, etc.
+        if (isDownloadOnly) {
+           return (
+               <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                   <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                   <h3 className="text-xl font-bold">{upload.title}</h3>
+                   <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
+                   <Button asChild variant="default" size="lg" className="mt-6">
+                       <a href={dynamicUrl} download={firstFile.file.name}>
+                           <Download className="mr-2 h-4 w-4" />
+                           Download File
+                       </a>
+                   </Button>
+               </div>
+           );
+        }
+
+        // Generic fallback should not be reached if logic is correct
         return (
-           <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
-               <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
-               <h3 className="text-xl font-bold">{upload.title}</h3>
-               <p className="text-muted-foreground mt-2">Preview not available for this file type. Please download to view.</p>
-               <Button asChild variant="default" size="lg" className="mt-6">
-                   <a href={dynamicUrl || '#'} download={firstFile.file.name}>
-                       <Download className="mr-2 h-4 w-4" />
-                       Download File
-                   </a>
-               </Button>
-           </div>
-       );
+            <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted">
+                <FileText className="w-20 h-20 mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-bold">{upload.title}</h3>
+                <p className="text-muted-foreground mt-2">An unexpected error occurred. Unable to display this file.</p>
+            </div>
+        );
     };
 
 
@@ -429,7 +460,7 @@ export default function ProfilePage() {
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
                                     "p-0 border-0 bg-transparent shadow-none w-auto",
-                                     (viewingUpload.type === 'document' || viewingUpload.type === 'article' || viewingUpload.files[0]?.file.type === 'application/pdf')
+                                     (viewingUpload.type === 'document' || viewingUpload.type === 'article')
                                       ? "max-w-6xl h-[90vh]"
                                       : "max-w-6xl flex items-center justify-center"
                                 )}>
@@ -600,6 +631,5 @@ export default function ProfilePage() {
         </div>
     );
 }
-
 
     
