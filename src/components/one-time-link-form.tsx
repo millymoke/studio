@@ -48,8 +48,10 @@ export function OneTimeLinkForm() {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("upload");
   const [userUploads, setUserUploads] = useState<Upload[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
     if (storedUploads) {
       try {
@@ -73,6 +75,7 @@ export function OneTimeLinkForm() {
   const fileRef = form.register("file");
 
   async function onSubmit(values: FormValues) {
+    if (!isClient) return;
     setIsLoading(true);
     setGeneratedLink(null);
 
@@ -158,6 +161,10 @@ export function OneTimeLinkForm() {
   }
   
   const selectedUploadId = form.watch('selectedUpload');
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <>

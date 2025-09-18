@@ -170,7 +170,9 @@ export default function ProfilePage() {
     const handleDeletePost = async () => {
         if (!deletingUploadId) return;
         
-        await deleteFilesFromDb(deletingUploadId);
+        if (isClient) {
+            await deleteFilesFromDb(deletingUploadId);
+        }
 
         const updatedUploads = allUploadsRef.current.filter((upload: Upload) => upload.id !== deletingUploadId);
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
@@ -233,7 +235,7 @@ export default function ProfilePage() {
             let objectUrl: string | null = null;
     
             const loadContent = async () => {
-                if (!firstFile) {
+                if (!firstFile || !isClient) {
                     setIsLoading(false);
                     return;
                 }
@@ -291,7 +293,7 @@ export default function ProfilePage() {
                     pageBlobUrls.current.delete(objectUrl);
                 }
             };
-        }, [upload.id, firstFile, isImage, isText]);
+        }, [upload.id, firstFile, isImage, isText, isClient]);
     
         if (isLoading) {
             return (
@@ -302,7 +304,7 @@ export default function ProfilePage() {
         }
     
         if (error) {
-            return (
+             return (
                  <div className="w-full max-w-xl rounded-md flex flex-col items-center justify-center p-8 text-center bg-muted text-destructive-foreground">
                     <FileText className="w-20 h-20 mb-4" />
                     <h3 className="text-xl font-bold">Error Loading File</h3>
@@ -600,13 +602,13 @@ export default function ProfilePage() {
                                             </Button>
                                         </div>
                                     )}
-                                    {renderGrid(uploads, true)}
+                                    {isClient && renderGrid(uploads, true)}
                                 </TabsContent>
                                 <TabsContent value="saved">
                                     {isClient && !isLoading && savedUploads.length === 0 && (
                                         <p className="text-center text-muted-foreground py-10">You haven't saved anything yet.</p>
                                     )}
-                                    {renderGrid(savedUploads, false)}
+                                    {isClient && renderGrid(savedUploads, false)}
                                 </TabsContent>
                             </Tabs>
                         </CardContent>
@@ -631,5 +633,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    
