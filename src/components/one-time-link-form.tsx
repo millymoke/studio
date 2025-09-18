@@ -34,7 +34,6 @@ const formSchema = z.object({
   file: z.any().optional(),
   selectedUpload: z.string().optional(),
   recipient: z.string().email({ message: "Please enter a valid recipient email." }).optional().or(z.literal('')),
-  expirationMinutes: z.coerce.number().min(1, "Expiration must be at least 1 minute.").max(1440, "Expiration cannot exceed 24 hours)."),
 }).refine(data => data.file || data.selectedUpload, {
     message: "Please either upload a file or select an existing one.",
     path: ["file"],
@@ -68,7 +67,6 @@ export function OneTimeLinkForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       recipient: "",
-      expirationMinutes: 60,
     },
   });
   
@@ -106,7 +104,6 @@ export function OneTimeLinkForm() {
       const result = await generateOneTimeLink({
         fileDataUri,
         recipient: values.recipient || undefined,
-        expirationMinutes: values.expirationMinutes,
       });
 
       if (result.oneTimeLink) {
@@ -247,26 +244,12 @@ export function OneTimeLinkForm() {
                 <FormControl>
                   <Input placeholder="recipient@example.com" {...field} />
                 </FormControl>
+                <FormDescription>The link will be associated with this recipient.</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
           
-          <FormField
-            control={form.control}
-            name="expirationMinutes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Expiration (in minutes)</FormLabel>
-                <FormControl>
-                  <Input type="number" {...field} />
-                </FormControl>
-                 <FormDescription>The link will self-destruct after this many minutes.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>

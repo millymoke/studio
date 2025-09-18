@@ -23,12 +23,6 @@ const GenerateOneTimeLinkInputSchema = z.object({
     .email()
     .optional()
     .describe('The intended recipient of the file (optional).'),
-  expirationMinutes: z
-    .number()
-    .default(60)
-    .describe(
-      'The number of minutes the link should be valid for, defaulting to 60 minutes.'
-    ),
 });
 export type GenerateOneTimeLinkInput = z.infer<
   typeof GenerateOneTimeLinkInputSchema
@@ -55,14 +49,11 @@ const prompt = ai.definePrompt({
 
 File data URI is provided in the input.
 
-The link should be unique and encrypted. It should expire after the specified number of minutes.
+The link should be unique and encrypted. Once the link is accessed once, it should become invalid and self-destruct.
+
 {{#if recipient}}
 The link should be associated with the recipient: {{{recipient}}}
 {{/if}}
-
-Once the link is accessed once, it should become invalid.
-
-Expiration (minutes): {{{expirationMinutes}}}
 
 Generate a unique URL for this. For the purpose of this simulation, you can use a placeholder URL structure like "https://example.com/secure/..." with a unique token.
 `,
@@ -78,7 +69,7 @@ const generateOneTimeLinkFlow = ai.defineFlow(
     // In a real application, you would:
     // 1. Encrypt the file content.
     // 2. Store the encrypted file in a secure storage (e.g., a database or a secure cloud storage).
-    // 3. Generate a unique token and store it with the file details, recipient, and expiration.
+    // 3. Generate a unique token and store it with the file details and recipient. The token's status would be marked as 'used' after one access.
     // 4. Construct the one-time link with the unique token.
 
     // For this prototype, we'll simulate the link generation using an AI prompt.
