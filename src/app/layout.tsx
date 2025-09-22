@@ -4,7 +4,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Media Hub',
+  title: 'Share Space',
   description: 'Share Without Limits',
   icons: [],
 };

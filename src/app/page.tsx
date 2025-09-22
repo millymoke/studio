@@ -38,9 +38,9 @@ export default function Home() {
         <section className="py-16 bg-card">
           <div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
             <div className="text-center md:text-left">
-              <h2 className="text-3xl md:text-4xl font-bold font-headline mb-4">Share Without Limits</h2>
+              <h2 className="text-3xl md:text-4xl font-bold font-headline mb-4">Endless Possibilities</h2>
               <p className="text-lg text-muted-foreground mb-6">
-                Upload images, videos, documents, and articles with unlimited custom tags. No restrictions, maximum resolution, endless possibilities.
+                Upload images, videos, documents, and articles with unlimited custom tags. No restrictions, maximum resolution.
               </p>
               <Button asChild variant="link" className="p-0 text-base">
                 <Link href="/signup">Get Started <ArrowRight className="ml-2 w-4 h-4" /></Link>
