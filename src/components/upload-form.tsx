@@ -265,7 +265,7 @@ export function UploadForm() {
               <FormControl>
                  <Input type="file" multiple onChange={handleFileChange} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
               </FormControl>
-              <FormDescription>Select images, documents, or videos to upload.</FormDescription>
+              <FormDescription>Select images, documents, or videos to upload. For optimal viewing please upload word documents in PDF format.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
