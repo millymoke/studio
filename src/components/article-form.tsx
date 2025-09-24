@@ -155,7 +155,7 @@ export function ArticleForm() {
             <FormItem>
               <FormLabel>Article Title</FormLabel>
               <FormControl>
-                <Input placeholder="My Awesome Article" {...field} />
+                <Input placeholder="My Article" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

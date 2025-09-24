@@ -390,7 +390,7 @@ export function UploadForm() {
             <FormItem>
               <FormLabel>Post Title</FormLabel>
               <FormControl>
-                <Input placeholder="My Awesome Post" {...field} />
+                <Input placeholder="My Post" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
