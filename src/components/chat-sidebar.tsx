@@ -33,6 +33,7 @@ export function ChatSidebar({ users, selectedUser, onSelectUser }: ChatSidebarPr
     return (
         <div className="flex flex-col h-full">
             <div className="p-4">
+                 <h2 className="text-xl font-bold mb-4">Contacts</h2>
                 <div className="relative">
                     <Input 
                         placeholder="Search by name or phone..." 

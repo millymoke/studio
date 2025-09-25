@@ -7,7 +7,7 @@ import Footer from '@/components/footer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2, Download, CheckSquare, LayoutGrid } from 'lucide-react';
+import { Edit, MessageCircle, Send, MoreVertical, Bookmark, Link as LinkIcon, Loader2, PlayCircle, FileText, Trash2, Download, CheckSquare, LayoutGrid, Plus } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,12 +22,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { getFilesFromDb, deleteFilesFromDb } from '@/lib/db';
+import { useToast } from '@/hooks/use-toast';
 
 interface UploadWithLocalPreview extends Upload {
     files: Array<UploadedFile & { localPreviewUrl?: string }>;
 }
 
 export default function ProfilePage() {
+    const { toast } = useToast();
     const user = { 
         username: 'Maalai', 
         email: 'maalai@example.com',
@@ -183,6 +185,13 @@ export default function ProfilePage() {
         setEditingUpload(null);
     };
     
+    const handleAddToList = () => {
+        // This is a mock implementation. In a real app, this would be an API call.
+        toast({
+            title: `${user.username} added to your list!`,
+        });
+    }
+
     const renderUploadContent = (upload: UploadWithLocalPreview) => {
         const firstFile = upload.files?.[0];
         if (!firstFile) return null;
@@ -559,6 +568,9 @@ export default function ProfilePage() {
                                 <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-4 mb-2">
                                     <h1 className="text-4xl font-bold">{user.username}</h1>
                                     <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={handleAddToList}>
+                                          <Plus className="mr-2 h-4 w-4" /> Add to List
+                                        </Button>
                                         <Button variant="outline" size="sm" asChild>
                                           <Link href="/chat">
                                             <MessageCircle className="mr-2 h-4 w-4" /> Chat

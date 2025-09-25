@@ -39,13 +39,20 @@ export function ChatLayout({ defaultLayout = [265, 1000] }: ChatLayoutProps) {
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={defaultLayout[1]}>
-        <div className="flex flex-col h-full">
-            <div className="p-4 flex items-center gap-3">
-                <h2 className="text-xl font-bold">{selectedUser.name}</h2>
+         {selectedUser ? (
+            <div className="flex flex-col h-full">
+                <div className="p-4 flex items-center gap-3">
+                    <h2 className="text-xl font-bold">{selectedUser.name}</h2>
+                </div>
+                <Separator />
+                <ChatMessages user={selectedUser} />
             </div>
-            <Separator />
-            <ChatMessages user={selectedUser} />
-        </div>
+         ) : (
+            <div className="flex flex-col h-full items-center justify-center text-muted-foreground">
+                <p>Select a contact to start chatting</p>
+                <p className="text-sm">or search for a new user.</p>
+            </div>
+         )}
       </ResizablePanel>
     </ResizablePanelGroup>
   );

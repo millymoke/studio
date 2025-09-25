@@ -1,10 +1,11 @@
+
 "use client"
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Lock, Upload, User, LogOut, Settings, Bookmark, Menu } from 'lucide-react';
+import { Lock, Upload, User, LogOut, Settings, Bookmark, Menu, List } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,6 +83,10 @@ export default function Header() {
               <Bookmark className="mr-2 h-4 w-4" />
               <span>Bookmarks</span>
            </DropdownMenuItem>
+           <DropdownMenuItem>
+              <List className="mr-2 h-4 w-4" />
+              <span>My List</span>
+           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -122,6 +127,7 @@ export default function Header() {
                       </div>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/profile')}><User className="mr-2"/>Profile</Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/account-settings')}><Settings className="mr-2"/>Settings</Button>
+                      <Button variant="ghost" className="w-full justify-start"><List className="mr-2"/>My List</Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/upload')}><Upload className="mr-2"/>Upload</Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/one-time-link')}><Lock className="mr-2"/>Secure Share</Button>
                       <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsLoggedIn(false); setIsSheetOpen(false); }}><LogOut className="mr-2"/>Log Out</Button>
