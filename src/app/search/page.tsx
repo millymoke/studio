@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { searchContent } from '@/lib/firebase-utils';
 import Image from 'next/image';
@@ -16,7 +16,7 @@ interface Hit {
   source: 'post' | 'article';
 }
 
-export default function SearchPage() {
+function SearchPageInner() {
   const params = useSearchParams();
   const q = (params.get('q') || '').toLowerCase();
   const [hits, setHits] = useState<Hit[]>([]);
@@ -61,6 +61,14 @@ export default function SearchPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-10">Loading search…</div>}>
+      <SearchPageInner />
+    </Suspense>
   );
 }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PdfViewer } from '@/components/pdf-viewer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PdfViewerPage() {
+function PdfViewerInner() {
   const searchParams = useSearchParams();
   const url = searchParams.get('url');
   const fileName = searchParams.get('fileName') || 'document.pdf';
@@ -53,5 +53,13 @@ export default function PdfViewerPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function PdfViewerPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading…</div>}>
+      <PdfViewerInner />
+    </Suspense>
   );
 }
