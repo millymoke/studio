@@ -4,8 +4,9 @@ import Footer from '@/components/footer';
 import { ChatLayout } from '@/components/chat-layout';
 import { cookies } from 'next/headers';
 
-export default function ChatPage() {
-  const layout = cookies().get("react-resizable-panels:layout");
+export default async function ChatPage() {
+  const cookieStore = await cookies();
+  const layout = cookieStore.get?.("react-resizable-panels:layout");
   const defaultLayout = layout ? JSON.parse(layout.value) : undefined;
 
   return (

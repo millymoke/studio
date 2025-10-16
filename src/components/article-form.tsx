@@ -22,11 +22,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
+// No local storage needed - all data stored in Firebase
 import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
+// No IndexedDB needed - all files stored in Firebase Storage
+import { useAuth } from '@/components/auth-provider';
+import { createArticle } from "@/lib/firebase-utils";
 import { saveFilesToDb } from "@/lib/db";
-
+import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required."),
@@ -43,6 +46,7 @@ export function ArticleForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -73,6 +77,7 @@ export function ArticleForm() {
     setIsLoading(true);
 
     try {
+      if (!user) {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
       const coverFile = values.coverPhoto as File | undefined;
       
@@ -101,6 +106,7 @@ export function ArticleForm() {
 
       const newArticle: Upload = {
         id: newArticleId,
+        uid: "",
         type: 'article',
         title: values.title,
         description: values.content.substring(0, 100), // Use snippet of content as description
@@ -123,6 +129,37 @@ export function ArticleForm() {
       // Save the metadata to localStorage
       const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
       localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([newArticle, ...existingUploads]));
+
+        toast({ variant: "destructive", title: "Sign in required", description: "Please log in to publish an article." });
+        router.push('/login');
+        return;
+      } else {
+        // Handle both File and FileList cases
+        let coverFile: File | undefined;
+        if (values.coverPhoto instanceof FileList) {
+          coverFile = values.coverPhoto[0] || undefined;
+        } else if (values.coverPhoto instanceof File) {
+          coverFile = values.coverPhoto;
+        } else {
+          coverFile = undefined;
+        }
+        
+        console.log('Article form - coverPhoto value:', values.coverPhoto);
+        console.log('Article form - coverFile:', coverFile);
+        console.log('Article form - coverPreview:', coverPreview);
+        
+        const article = await createArticle({
+          uid: user.uid,
+          title: values.title,
+          content: values.content,
+          tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
+          link: values.link || '',
+          coverPhoto: coverFile ? {
+            file: coverFile,
+            preview: coverPreview || '',
+          } : undefined,
+        });
+      }
 
       toast({
         title: "Article Published!",

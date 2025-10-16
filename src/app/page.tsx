@@ -1,4 +1,8 @@
+"use client";
+
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Check, Search, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
@@ -7,6 +11,8 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 
 export default function Home() {
+  const router = useRouter();
+  const [query, setQuery] = useState('');
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Header />
@@ -27,9 +33,9 @@ export default function Home() {
             </div>
             <div className="max-w-md mx-auto">
               <div className="relative">
-                <Input type="search" placeholder="Search titles, tags, users..." className="w-full pl-10 pr-20 h-12 text-base" />
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} type="search" placeholder="Search titles, tags..." className="w-full pl-10 pr-20 h-12 text-base" />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 h-10">Search</Button>
+                <Button type="button" onClick={() => router.push(`/search?q=${encodeURIComponent(query)}`)} className="absolute right-1 top-1/2 -translate-y-1/2 h-10">Search</Button>
               </div>
             </div>
           </div>

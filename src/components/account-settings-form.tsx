@@ -1,12 +1,17 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Image from 'next/image';
+import { useAuth } from '@/components/auth-provider';
+import { auth, db } from '@/lib/firebase-config';
+import { updateEmail, updatePassword, updateProfile, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { uploadFileToVPS, createVPSUserPath } from '@/lib/vps-storage-utils';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,24 +52,18 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const currentUser = { 
-    username: 'Maalai', 
-    email: 'maalai@example.com',
-    bio: 'Sharing my world',
-    avatar: 'https://picsum.photos/200'
-};
-
 export function AccountSettingsForm() {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(currentUser.avatar);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: currentUser.username,
-      email: currentUser.email,
-      bio: currentUser.bio,
+      username: '',
+      email: '',
+      bio: '',
     },
   });
   
@@ -78,27 +77,115 @@ export function AccountSettingsForm() {
     }
   };
 
+  // Initialize form with current user info
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!user) return;
+      let bio = '';
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          bio = data?.bio || '';
+        }
+      } catch {
+        // ignore offline errors here
+      }
+      if (!active) return;
+      form.reset({
+        username: user.displayName || '',
+        email: user.email || '',
+        bio,
+      });
+      setAvatarPreview(user.photoURL || null);
+    };
+    load();
+    return () => { active = false };
+  }, [user]);
+
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
 
     try {
-      // Mock API call to update user details
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Updated values:", values);
-      
-      toast({
-        title: "Settings Saved!",
-        description: "Your account details have been updated successfully.",
+      setErrorMsg(null);
+      if (!user) throw new Error('You must be signed in.');
+
+      // Require current password when changing email or password
+      const wantsEmailChange = !!values.email && values.email !== user.email;
+      const wantsPasswordChange = !!values.newPassword;
+      if ((wantsEmailChange || wantsPasswordChange) && !values.currentPassword) {
+        form.setError('currentPassword', { message: 'Current password is required to change email or password.' });
+        throw new Error('Current password is required to change email or password.');
+      }
+      if ((wantsEmailChange || wantsPasswordChange) && user.email && values.currentPassword) {
+        const cred = EmailAuthProvider.credential(user.email, values.currentPassword);
+        await reauthenticateWithCredential(user, cred);
+      }
+
+      // Avatar upload (optional)
+      let photoURL = user.photoURL || null;
+      const avatarFile = values.avatar as File | undefined;
+      if (avatarFile) {
+        const path = `${createVPSUserPath(user.uid, 'avatars')}/${Date.now()}-${avatarFile.name}`;
+        const result = await uploadFileToVPS(avatarFile, path);
+        if (!result.success || !result.file) throw new Error(result.error || 'Avatar upload failed');
+        photoURL = result.file.url;
+      }
+
+      // Profile display name / photo
+      if (values.username || photoURL) {
+        await updateProfile(user, {
+          displayName: values.username || user.displayName || undefined,
+          photoURL: photoURL || undefined,
+        });
+      }
+
+      // Email change
+      if (wantsEmailChange) {
+        await updateEmail(user, values.email);
+      }
+
+      // Password change
+      if (wantsPasswordChange && values.newPassword) {
+        await updatePassword(user, values.newPassword);
+      }
+
+      // Persist bio and public fields in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        displayName: values.username || user.displayName || null,
+        email: values.email || user.email || null,
+        photoURL: photoURL || null,
+        bio: values.bio || '',
+        updatedAt: new Date(),
+      }, { merge: true });
+
+      // Refresh local auth user state
+      await auth.currentUser?.reload();
+      setAvatarPreview(photoURL);
+      form.reset({
+        username: auth.currentUser?.displayName || values.username,
+        email: auth.currentUser?.email || values.email,
+        bio: values.bio || '',
+        avatar: undefined,
+        currentPassword: undefined,
+        newPassword: undefined,
+        confirmPassword: undefined,
       });
 
-    } catch (error) {
-        console.error("Failed to update settings", error)
-        toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: "There was a problem saving your settings.",
-        });
+      // Indicate success inline by clearing error and leaving form reset
+      setErrorMsg(null);
+
+    } catch (error: any) {
+      let message = error?.message || "There was a problem saving your settings.";
+      if (error?.code === 'auth/requires-recent-login') {
+        message = 'Please sign in again and retry this sensitive operation.';
+      } else if (error?.code === 'auth/weak-password') {
+        message = 'Password should be at least 6 characters.';
+      }
+      setErrorMsg(message);
     } finally {
         setIsLoading(false);
     }
@@ -107,6 +194,11 @@ export function AccountSettingsForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        {errorMsg && (
+          <Alert variant="destructive">
+            <AlertDescription>{errorMsg}</AlertDescription>
+          </Alert>
+        )}
         <div className="flex items-center gap-6">
             {avatarPreview && (
                 <Image src={avatarPreview} alt="Avatar preview" width={96} height={96} className="w-24 h-24 rounded-full object-cover" data-ai-hint="user avatar"/>
@@ -128,7 +220,7 @@ export function AccountSettingsForm() {
             <FormItem>
               <FormLabel>Username</FormLabel>
               <FormControl>
-                <Input placeholder="your_username" {...field} />
+                <Input placeholder="your_username" value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -142,7 +234,7 @@ export function AccountSettingsForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="name@example.com" {...field} />
+                <Input placeholder="name@example.com" value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
                <FormDescription>We will not share your email with anyone.</FormDescription>
               <FormMessage />
@@ -157,7 +249,7 @@ export function AccountSettingsForm() {
             <FormItem>
               <FormLabel>Bio</FormLabel>
               <FormControl>
-                <Textarea placeholder="Tell us a little bit about yourself" {...field} />
+                <Textarea placeholder="Tell us a little bit about yourself" value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -178,7 +270,7 @@ export function AccountSettingsForm() {
             <FormItem>
               <FormLabel>Current Password</FormLabel>
               <FormControl>
-                <Input type="password" {...field} />
+                <Input type="password" value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -192,7 +284,7 @@ export function AccountSettingsForm() {
             <FormItem>
               <FormLabel>New Password</FormLabel>
               <FormControl>
-                <Input type="password" {...field} />
+                <Input type="password" value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -206,7 +298,7 @@ export function AccountSettingsForm() {
             <FormItem>
               <FormLabel>Confirm New Password</FormLabel>
               <FormControl>
-                <Input type="password" {...field} />
+                <Input type="password" value={field.value ?? ''} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>

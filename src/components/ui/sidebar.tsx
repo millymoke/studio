@@ -206,6 +206,8 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
+            {/* Hidden title to satisfy Radix a11y requirements */}
+            <h2 className="sr-only" aria-hidden={false} id="mobile-sidebar-title">Mobile Sidebar</h2>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
         </Sheet>

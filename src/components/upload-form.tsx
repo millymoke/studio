@@ -31,12 +31,16 @@ import { Loader2, Trash2, PlayCircle, File as FileIcon, ImagePlus } from "lucide
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
+// No local storage needed - all data stored in Firebase
 import type { Upload, UploadedFile, SerializableFile } from "@/lib/types";
 import { readFileAsDataURL } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { VideoThumbnailSelector } from "./video-thumbnail-selector";
+// No IndexedDB needed - all files stored in Firebase Storage
+import { useAuth } from "@/components/auth-provider";
+import { createPost } from "@/lib/firebase-utils";
 import { saveFilesToDb } from "@/lib/db";
+import { UPLOADS_STORAGE_KEY } from "@/lib/constants";
 
 
 const fileSchema = z.object({
@@ -68,6 +72,7 @@ const getFileType = (file: File | SerializableFile): 'image' | 'video' | 'docume
 export function UploadForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [thumbnailSelectorOpen, setThumbnailSelectorOpen] = useState(false);
   const [videoForThumbnail, setVideoForThumbnail] = useState<{file: File, index: number} | null>(null);
@@ -156,6 +161,7 @@ export function UploadForm() {
     setIsLoading(true);
 
     try {
+      if (!user) {
         const existingUploads = JSON.parse(localStorage.getItem(UPLOADS_STORAGE_KEY) || '[]') as Upload[];
         const newUploads: Upload[] = [];
         const filesToSave: {id: string, files: File[]}[] = [];
@@ -166,6 +172,7 @@ export function UploadForm() {
                  const originalFile = fileWithValue.file as File;
                  const newUpload: Upload = {
                     id: `${Date.now()}-${originalFile.name}`,
+                    uid: "",
                     type: getFileType(originalFile),
                     title: values.title,
                     description: values.description || '',
@@ -183,6 +190,7 @@ export function UploadForm() {
             
             const newUpload: Upload = {
                 id: Date.now().toString(),
+                uid: "",
                 type: getFileType(firstFile),
                 title: values.title,
                 description: values.description || '',
@@ -203,6 +211,26 @@ export function UploadForm() {
 
         // Save METADATA to localStorage
         localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify([...newUploads, ...existingUploads]));
+
+        toast({ variant: "destructive", title: "Sign in required", description: "Please log in to upload." });
+        router.push('/login');
+        return;
+      } else {
+        await createPost({
+          uid: user.uid,
+          title: values.title,
+          description: values.description || '',
+          tags: values.tags ? values.tags.split(',').map(t => t.trim()) : [],
+          link: values.link || '',
+          displayOption: values.displayOption,
+          files: values.files.map(f => ({
+            file: f.file as File,
+            altText: f.altText,
+            coverPhoto: f.coverPhoto ? { file: f.coverPhoto.file as File, preview: f.coverPhoto.preview } : undefined,
+            preview: f.preview,
+          })),
+        });
+      }
 
         toast({
           title: "Files Uploaded!",
@@ -320,7 +348,7 @@ export function UploadForm() {
                                       type="file" 
                                       accept="image/*" 
                                       className="hidden"
-                                      ref={el => coverPhotoInputRefs.current[index] = el}
+                                  ref={(el) => { coverPhotoInputRefs.current[index] = el; }}
                                       onChange={(e) => {
                                           if(e.target.files?.[0]) {
                                               handleCoverPhotoChange(e.target.files[0], index)

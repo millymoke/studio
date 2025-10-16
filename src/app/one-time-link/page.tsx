@@ -1,6 +1,7 @@
 
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import Protected from '@/components/protected';
 import { OneTimeLinkForm } from '@/components/one-time-link-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
@@ -10,6 +11,7 @@ export default function OneTimeLinkPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 flex items-center justify-center py-12 px-4">
+        <Protected>
         <Card className="w-full max-w-lg">
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -26,6 +28,7 @@ export default function OneTimeLinkPage() {
             <OneTimeLinkForm />
           </CardContent>
         </Card>
+        </Protected>
       </main>
       <Footer />
     </div>

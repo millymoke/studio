@@ -1,6 +1,7 @@
 
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import Protected from '@/components/protected';
 import { UploadForm } from '@/components/upload-form';
 import { ArticleForm } from '@/components/article-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,7 @@ export default function UploadPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 flex items-center justify-center py-12 px-4">
+        <Protected>
         <Card className="w-full max-w-2xl">
            <CardHeader>
             <div className="flex items-center gap-3">
@@ -45,6 +47,7 @@ export default function UploadPage() {
             </Tabs>
           </CardContent>
         </Card>
+        </Protected>
       </main>
       <Footer />
     </div>

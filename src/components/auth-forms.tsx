@@ -15,8 +15,16 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { Separator } from '@/components/ui/separator';
+import { Facebook, Apple, Chrome } from 'lucide-react';
 import { useState } from "react";
+import { auth, db } from "@/lib/firebase-config";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import { toast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -24,8 +32,9 @@ const loginSchema = z.object({
 });
 
 export function LoginForm() {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -37,21 +46,69 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     setIsLoading(true);
-    // Mock API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log(values);
-    toast({
-      title: "Logged In",
-      description: "Welcome back!",
-    });
-    setIsLoading(false);
+    setErrorMsg(null);
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      router.replace("/profile");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to sign in.";
+      setErrorMsg(message);
+    } finally {
+      setIsLoading(false);
+    }
   }
+
+  const handleGoogle = async () => {
+    try {
+      setErrorMsg(null);
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      router.replace('/profile');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Google sign-in failed.');
+    }
+  };
+
+  const handleApple = async () => {
+    try {
+      setErrorMsg(null);
+      toast({
+        title: 'Apple sign-in not available',
+        description: 'Apple sign-in is not available for this platform.',
+      });
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Apple sign-in failed.');
+    }
+  };
+
+  const handleFacebook = async () => {
+    try {
+      setErrorMsg(null);
+      toast({
+        title: 'Facebook sign-in not available',
+        description: 'Facebook sign-in is not available for this platform.',
+      });
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Facebook sign-in failed.');
+    }
+  };
 
   return (
     <Card className="w-full">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4 pt-6">
+            {errorMsg && (
+              <Alert variant="destructive">
+                <AlertDescription>{errorMsg}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid grid-cols-3 gap-2">
+              <Button type="button" variant="outline" onClick={handleApple}><Apple className="w-4 h-4" /></Button>
+              <Button type="button" variant="outline" onClick={handleFacebook}><Facebook className="w-4 h-4" /></Button>
+              <Button type="button" variant="outline" onClick={handleGoogle}><Chrome className="w-4 h-4" /></Button>
+            </div>
+            <Separator />
               <FormField
                 control={form.control}
                 name="email"
@@ -97,8 +154,9 @@ const signupSchema = z.object({
 });
 
 export function SignupForm() {
-    const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const router = useRouter();
 
     const form = useForm<z.infer<typeof signupSchema>>({
         resolver: zodResolver(signupSchema),
@@ -111,14 +169,27 @@ export function SignupForm() {
 
     async function onSubmit(values: z.infer<typeof signupSchema>) {
         setIsLoading(true);
-        // Mock API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log(values);
-        toast({
-            title: "Account Created",
-            description: "Welcome to Media Hub! Please sign in.",
-        });
+      setErrorMsg(null);
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        if (cred.user) {
+          // Set displayName
+          await updateProfile(cred.user, { displayName: values.username });
+          // Ensure user doc exists immediately
+          await setDoc(doc(db, 'users', cred.user.uid), {
+            uid: cred.user.uid,
+            email: cred.user.email,
+            displayName: values.username,
+            createdAt: serverTimestamp(),
+          }, { merge: true });
+        }
+        router.replace("/profile");
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to create account.";
+        setErrorMsg(message);
+      } finally {
         setIsLoading(false);
+      }
     }
 
     return (
@@ -126,6 +197,11 @@ export function SignupForm() {
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <CardContent className="space-y-4 pt-6">
+                        {errorMsg && (
+                            <Alert variant="destructive">
+                                <AlertDescription>{errorMsg}</AlertDescription>
+                            </Alert>
+                        )}
                         <FormField
                             control={form.control}
                             name="username"

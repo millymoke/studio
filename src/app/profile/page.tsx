@@ -14,28 +14,30 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent } from '@/components/ui/alert-dialog';
 import { EditPostForm } from '@/components/edit-post-form';
+import { EditArticleForm } from '@/components/edit-article-form';
 import type { Upload, UploadedFile } from '@/lib/types';
-import { UPLOADS_STORAGE_KEY } from '@/lib/constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { getFilesFromDb, deleteFilesFromDb } from '@/lib/db';
+// No IndexedDB needed - all files stored in Firebase Storage
 import { useToast } from '@/hooks/use-toast';
+import { PdfViewer } from '@/components/pdf-viewer';
+import { PdfThumbnail } from '@/components/pdf-thumbnail';
+import { OfficeDocsThumbnail } from '@/components/office-docs-thumbnail';
+import { useAuth } from '@/components/auth-provider';
+import { getUserUploads, updatePost, updateArticle, deleteUpload, fetchFileContentFromStorage } from '@/lib/firebase-utils';
 
 interface UploadWithLocalPreview extends Upload {
     files: Array<UploadedFile & { localPreviewUrl?: string }>;
 }
 
+import Protected from '@/components/protected';
+
 export default function ProfilePage() {
     const { toast } = useToast();
-    const user = { 
-        username: 'Maalai', 
-        email: 'maalai@example.com',
-        bio: 'Sharing my world',
-        avatar: 'https://picsum.photos/200'
-    };
+    const { user } = useAuth();
 
     const [uploads, setUploads] = useState<UploadWithLocalPreview[]>([]);
     const [savedUploads, setSavedUploads] = useState<UploadWithLocalPreview[]>([]);
@@ -49,6 +51,7 @@ export default function ProfilePage() {
     const allUploadsRef = useRef<Upload[]>([]);
     const BATCH_SIZE = 8;
     const [activeTab, setActiveTab] = useState('uploads');
+    const [lastDoc, setLastDoc] = useState<any>(null);
 
     const pageBlobUrls = useRef<Set<string>>(new Set());
 
@@ -63,23 +66,7 @@ export default function ProfilePage() {
         };
     }, []);
     
-    const loadUploadsFromStorage = useCallback(() => {
-        if (typeof window === 'undefined') return [];
-        const storedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
-        if (storedUploads) {
-            try {
-                const parsed = JSON.parse(storedUploads) as Upload[];
-                if (Array.isArray(parsed)) {
-                    return parsed.sort((a, b) => parseInt(b.id.split('-')[0]) - parseInt(a.id.split('-')[0]));
-                }
-                return [];
-            } catch (e) {
-                console.error("Failed to parse uploads from localStorage", e);
-                return [];
-            }
-        }
-        return [];
-    }, []);
+    // No local storage - all data comes from Firebase
 
     const processUploadsWithLocalPreviews = async (uploadsToProcess: Upload[]): Promise<UploadWithLocalPreview[]> => {
         const processed = await Promise.all(uploadsToProcess.map(async (upload) => {
@@ -97,43 +84,46 @@ export default function ProfilePage() {
 
     const loadInitialData = useCallback(async () => {
         setIsLoading(true);
-        const storedUploads = loadUploadsFromStorage();
-        allUploadsRef.current = storedUploads;
-        
-        const initialBatch = allUploadsRef.current.slice(0, BATCH_SIZE);
-        const initialBatchWithPreviews = await processUploadsWithLocalPreviews(initialBatch);
-        setUploads(initialBatchWithPreviews);
-        
-        setHasMore(allUploadsRef.current.length > BATCH_SIZE);
+        if (user) {
+            const result = await getUserUploads(user.uid, BATCH_SIZE);
+            allUploadsRef.current = result.uploads;
+            setLastDoc(result.lastDoc);
+            setHasMore(result.uploads.length === BATCH_SIZE);
+            const initialBatchWithPreviews = await processUploadsWithLocalPreviews(result.uploads);
+            setUploads(initialBatchWithPreviews);
+        } else {
+            // No user - show empty state
+            allUploadsRef.current = [];
+            setUploads([]);
+            setLastDoc(null);
+            setHasMore(false);
+        }
         setIsLoading(false);
-    }, [loadUploadsFromStorage]);
+    }, [user]);
 
 
     useEffect(() => {
         if (isClient) {
             loadInitialData();
-            const handleStorageChange = (e: StorageEvent) => {
-                if (e.key === UPLOADS_STORAGE_KEY) {
-                    loadInitialData();
-                }
-            };
-            window.addEventListener('storage', handleStorageChange);
-            return () => window.removeEventListener('storage', handleStorageChange);
+            // No local storage events to listen for
         }
     }, [isClient, loadInitialData]);
 
     const loadMoreUploads = useCallback(async () => {
         if (isLoading || !hasMore || activeTab !== 'uploads') return;
         setIsLoading(true);
+        if (user && lastDoc) {
+            // Fetch more uploads using pagination
+            const result = await getUserUploads(user.uid, BATCH_SIZE, lastDoc);
 
-        const currentLength = uploads.length;
-        const nextBatch = allUploadsRef.current.slice(currentLength, currentLength + BATCH_SIZE);
-        const nextBatchWithPreviews = await processUploadsWithLocalPreviews(nextBatch);
-        
-        setUploads(prev => [...prev, ...nextBatchWithPreviews]);
-        setHasMore(currentLength + nextBatch.length < allUploadsRef.current.length);
+            const nextBatchWithPreviews = await processUploadsWithLocalPreviews(result.uploads);
+            setUploads(prev => [...prev, ...nextBatchWithPreviews]);
+            setLastDoc(result.lastDoc);
+            setHasMore(result.uploads.length === BATCH_SIZE);
+        }
+
         setIsLoading(false);
-    }, [isLoading, hasMore, uploads.length, activeTab]);
+    }, [isLoading, hasMore, activeTab, user, lastDoc]);
 
     const lastUploadElementRef = useCallback((node: HTMLDivElement) => {
         if (isLoading) return;
@@ -146,11 +136,21 @@ export default function ProfilePage() {
         if (node) observer.current.observe(node);
     }, [isLoading, hasMore, loadMoreUploads]);
     
-    const handleUpdatePost = (updatedUpload: Upload) => {
+    const handleUpdatePost = async (updatedUpload: Upload) => {
+        if (!user) return;
+
+        try {
+            // Update in Firebase
+            if (updatedUpload.type === 'article') {
+                await updateArticle(updatedUpload.id, updatedUpload, user.uid);
+            } else {
+                await updatePost(updatedUpload.id, updatedUpload, user.uid);
+            }
+
+            // Update local state
         const updatedUploads = allUploadsRef.current.map((upload: Upload) =>
             upload.id === updatedUpload.id ? updatedUpload : upload
         );
-        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
         allUploadsRef.current = updatedUploads;
 
         setUploads(prev => prev.map(u => {
@@ -166,37 +166,140 @@ export default function ProfilePage() {
             }
             return u;
         }));
+
         setEditingUpload(null);
+
+            toast({
+                title: "Post Updated!",
+                description: "Your post has been successfully updated.",
+            });
+        } catch (error) {
+            console.error('Failed to update post:', error);
+            toast({
+                variant: "destructive",
+                title: "Update Failed",
+                description: "Failed to update your post. Please try again.",
+            });
+        }
     };
 
     const handleDeletePost = async () => {
-        if (!deletingUploadId) return;
+        if (!deletingUploadId || !user) return;
         
-        if (isClient) {
-            await deleteFilesFromDb(deletingUploadId);
-        }
+        try {
+            // Delete from Firebase (this also deletes files from storage)
+            await deleteUpload(deletingUploadId, user.uid);
 
+            // Update local state
         const updatedUploads = allUploadsRef.current.filter((upload: Upload) => upload.id !== deletingUploadId);
-        localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(updatedUploads));
         allUploadsRef.current = updatedUploads;
 
         setUploads(prev => prev.filter(u => u.id !== deletingUploadId));
         setDeletingUploadId(null);
         setEditingUpload(null);
+
+            toast({
+                title: "Post Deleted!",
+                description: "Your post has been successfully deleted.",
+            });
+        } catch (error) {
+            console.error('Failed to delete post:', error);
+            toast({
+                variant: "destructive",
+                title: "Delete Failed",
+                description: "Failed to delete your post. Please try again.",
+            });
+        }
     };
     
     const handleAddToList = () => {
         // This is a mock implementation. In a real app, this would be an API call.
         toast({
-            title: `${user.username} added to your list!`,
+            title: `${user?.displayName} added to your list!`,
         });
     }
 
+    // Helper function to detect Office documents
+    const isOfficeDocument = (mimeType?: string, fileName?: string): boolean => {
+        if (!mimeType && !fileName) return false;
+
+        const type = mimeType?.toLowerCase() || '';
+        const name = fileName?.toLowerCase() || '';
+
+        // Excel files
+        if (type.includes('spreadsheet') || type.includes('excel') ||
+            name.endsWith('.xlsx') || name.endsWith('.xls')) {
+            return true;
+        }
+
+        // Word files
+        if (type.includes('document') || type.includes('word') ||
+            name.endsWith('.docx') || name.endsWith('.doc')) {
+            return true;
+        }
+
+        return false;
+    };
+
     const renderUploadContent = (upload: UploadWithLocalPreview) => {
         const firstFile = upload.files?.[0];
-        if (!firstFile) return null;
+        if (!firstFile) {
+            return (
+                <div className="w-full h-full flex items-center justify-center bg-muted">
+                    <FileText className="w-8 h-8 text-muted-foreground" />
+                </div>
+            );
+        }
 
-        const previewSrc = firstFile.coverPhoto?.preview || firstFile.preview || firstFile.localPreviewUrl;
+        // Check if this is a PDF file
+        const isPdf = firstFile.file?.type === 'application/pdf' || firstFile.file?.name?.toLowerCase().endsWith('.pdf');
+
+        // Check if this is an Office document (Excel, Word, PowerPoint)
+        const isOfficeDoc = isOfficeDocument(firstFile.file?.type, firstFile.file?.name);
+
+        // For PDFs, use the PDF thumbnail component
+        if (isPdf) {
+            return (
+                <PdfThumbnail
+                    url={firstFile.preview || firstFile.url || ''}
+                    fileName={firstFile.file?.name || upload.title}
+                    className="w-full h-full"
+                />
+            );
+        }
+
+        // For Office documents, use the Office docs thumbnail component
+        if (isOfficeDoc) {
+            return (
+                <OfficeDocsThumbnail
+                    url={firstFile.preview || firstFile.url || ''}
+                    fileName={firstFile.file?.name || upload.title}
+                    fileType={firstFile.file?.type}
+                    className="w-full h-full"
+                />
+            );
+        }
+
+        // For articles, prioritize cover photo, for other types use file preview
+        let previewSrc: string | null = null;
+        if (upload.type === 'article') {
+            // Articles: use cover photo if available, otherwise no preview (will show icon)
+            previewSrc = firstFile.coverPhoto?.preview || null;
+        } else {
+            // Posts: use file preview or cover photo
+            previewSrc = firstFile.coverPhoto?.preview || firstFile.preview || firstFile.localPreviewUrl || null;
+        }
+
+        // Debug logging for cover photos
+        if (upload.type === 'article') {
+            console.log('Article cover photo data:', {
+                hasCoverPhoto: !!firstFile.coverPhoto,
+                coverPreview: firstFile.coverPhoto?.preview,
+                filePreview: firstFile.preview,
+                localPreview: firstFile.localPreviewUrl,
+                finalPreviewSrc: previewSrc
+            });
+        }
 
         return (
             <div className="absolute inset-0 bg-muted">
@@ -205,6 +308,7 @@ export default function ProfilePage() {
                         src={previewSrc}
                         alt={upload.title}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover"
                         style={{ objectPosition: firstFile.objectPosition || 'center' }}
                     />
@@ -238,6 +342,7 @@ export default function ProfilePage() {
         const isText = upload.type === 'article' || firstFile?.file.type?.startsWith('text/');
         const isViewableDocument = isPdf || isText;
         const isDownloadOnly = upload.type === 'document' && !isViewableDocument;
+        const isArticle = upload.type === 'article';
 
         useEffect(() => {
             let active = true;
@@ -260,28 +365,26 @@ export default function ProfilePage() {
                 setError(null);
     
                 try {
-                    const dbFiles = await getFilesFromDb(upload.id);
-                    const fileObject = dbFiles?.[0];
-    
+                    // Files are now stored in Firebase Storage
                     if (!active) return;
     
-                    if (fileObject) {
-                        objectUrl = URL.createObjectURL(fileObject);
-                        pageBlobUrls.current.add(objectUrl);
-                        setDynamicUrl(objectUrl);
-    
-                        if (isText) {
-                            const text = await fileObject.text();
-                            if (active) setTextContent(text);
+                    if (isArticle) {
+                        // For articles, show cover photo if available, otherwise show text content
+                        if (firstFile.coverPhoto?.preview) {
+                            setDynamicUrl(firstFile.coverPhoto.preview);
+                        } else if (firstFile.url) {
+                            // For articles without cover photo, we'll show a placeholder
+                            // The text content will be fetched separately if needed
+                            setDynamicUrl(''); // No image to show
                         }
-                    } else {
-                        // For images that might not be in DB (e.g., from older implementation),
-                        // but have a data URL in metadata.
-                        if (isImage && firstFile.preview.startsWith('data:')) {
+                    } else if (firstFile.url) {
+                        // For other types, use Firebase Storage URL directly
+                        setDynamicUrl(firstFile.url);
+                    } else if (firstFile.preview && firstFile.preview.startsWith('data:')) {
+                        // Fallback to data URL if available
                             setDynamicUrl(firstFile.preview);
                         } else {
-                            throw new Error("File data could not be retrieved from the database.");
-                        }
+                        throw new Error("File URL not available.");
                     }
                 } catch (e) {
                     console.error("Failed to load file for enlarged view", e);
@@ -303,6 +406,62 @@ export default function ProfilePage() {
                 }
             };
         }, [upload.id, firstFile, isImage, isText, isClient]);
+
+        // Separate effect to fetch article text content
+        useEffect(() => {
+            if (!isArticle || !firstFile?.url) return;
+
+            let active = true;
+
+            const fetchArticleContent = async () => {
+                try {
+                    if (!firstFile.url) return;
+                    const text = await fetchFileContentFromStorage(firstFile.url);
+                    if (active) {
+                        setTextContent(text);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch article content:', error);
+                    if (active) {
+                        setTextContent('Failed to load article content.');
+                    }
+                }
+            };
+
+            fetchArticleContent();
+
+            return () => {
+                active = false;
+            };
+        }, [isArticle, firstFile?.url]);
+
+        // Separate effect to fetch text content for non-article text files
+        useEffect(() => {
+            if (isArticle || !isText || !firstFile?.url) return;
+
+            let active = true;
+
+            const fetchTextContent = async () => {
+                try {
+                    if (!firstFile.url) return;
+                    const text = await fetchFileContentFromStorage(firstFile.url);
+                    if (active) {
+                        setTextContent(text);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch text content:', error);
+                    if (active) {
+                        setTextContent('Failed to load text content.');
+                    }
+                }
+            };
+
+            fetchTextContent();
+
+            return () => {
+                active = false;
+            };
+        }, [isArticle, isText, firstFile?.url]);
     
         if (isLoading) {
             return (
@@ -390,24 +549,50 @@ export default function ProfilePage() {
         
         if (isPdf) {
             return (
+                <div className="w-full h-full rounded-md overflow-hidden">
+                    <PdfViewer url={dynamicUrl} fileName={firstFile.file.name} className="w-full h-full" />
+                </div>
+            );
+        }
+
+        if (isArticle) {
+            // For articles, show cover photo if available, otherwise show text content
+            if (firstFile.coverPhoto?.preview) {
+                return (
+                    <div className="flex items-center justify-center h-full">
+                        <Image
+                            src={firstFile.coverPhoto.preview}
+                            alt={upload.title}
+                            width={800}
+                            height={1000}
+                            className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
+                        />
+                    </div>
+                );
+            } else {
+                // Show article text content
+            return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
                         <h3 className="font-bold truncate">{upload.title}</h3>
                         <Button asChild variant="outline" size="sm">
-                            <a href={dynamicUrl} download={firstFile.file.name}>
+                            <a href={firstFile.url} download={firstFile.file.name}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download
                             </a>
                         </Button>
                     </div>
-                    <div className="flex-grow w-full h-full">
-                        <embed src={dynamicUrl} type={firstFile.file.type} width="100%" height="100%" />
-                    </div>
+                    <ScrollArea className="h-full w-full flex-grow bg-white dark:bg-zinc-900">
+                        <div className="p-8 prose prose-lg prose-zinc dark:prose-invert max-w-none prose-pre:bg-transparent prose-pre:p-0">
+                                <pre className="whitespace-pre-wrap font-sans text-base text-zinc-800 dark:text-zinc-200">{textContent || 'Loading content...'}</pre>
+                        </div>
+                    </ScrollArea>
                 </div>
             );
+            }
         }
 
-        if (isText) {
+        if (isText && !isArticle) {
             return (
                 <div className="w-full h-full flex flex-col bg-background rounded-md overflow-hidden">
                     <div className="p-4 border-b flex items-center justify-between flex-shrink-0 bg-card">
@@ -515,13 +700,23 @@ export default function ProfilePage() {
                                      {editingUpload && editingUpload.id === upload.id && (
                                        <DialogContent>
                                          <DialogHeader>
-                                           <DialogTitle>Edit Post</DialogTitle>
+                                                    <DialogTitle>
+                                                        Edit {editingUpload.type === 'article' ? 'Article' : 'Post'}
+                                                    </DialogTitle>
                                          </DialogHeader>
+                                                {editingUpload.type === 'article' ? (
+                                                    <EditArticleForm
+                                                        article={editingUpload}
+                                                        onSave={handleUpdatePost}
+                                                        onDeleteRequest={() => setDeletingUploadId(editingUpload.id)}
+                                                    />
+                                                ) : (
                                          <EditPostForm 
                                              post={editingUpload}
                                              onSave={handleUpdatePost} 
                                              onDeleteRequest={() => setDeletingUploadId(editingUpload.id)}
                                          />
+                                                )}
                                        </DialogContent>
                                      )}
                                  </Dialog>
@@ -557,16 +752,17 @@ export default function ProfilePage() {
         <div className="flex flex-col min-h-screen bg-background">
             <Header />
             <main className="flex-1 py-12 px-4">
+                <Protected>
                 <div className="container mx-auto max-w-6xl">
                     <Card>
                         <CardHeader className="flex flex-col md:flex-row items-center gap-6 space-y-0 pb-8">
                             <Avatar className="h-28 w-28">
-                                <AvatarImage src={user.avatar} alt={user.username} data-ai-hint="user avatar" />
-                                <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                                    <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} data-ai-hint="user avatar" />
+                                    <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 text-center md:text-left">
                                 <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-4 mb-2">
-                                    <h1 className="text-4xl font-bold">{user.username}</h1>
+                                        <h1 className="text-4xl font-bold">{user?.displayName}</h1>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" onClick={handleAddToList}>
                                           <Plus className="mr-2 h-4 w-4" /> Add to List
@@ -583,8 +779,8 @@ export default function ProfilePage() {
                                         </Button>
                                     </div>
                                 </div>
-                                <p className="text-muted-foreground">{user.email}</p>
-                                <p className="text-sm mt-3 max-w-xl mx-auto md:mx-0">{user.bio}</p>
+                                    <p className="text-muted-foreground">{user?.email}</p>
+                                    <p className="text-sm mt-3 max-w-xl mx-auto md:mx-0">{user?.metadata?.creationTime?.toString() || ''}</p>
                             </div>
                              <Button variant="outline" size="sm" asChild>
                                 <Link href="/account-settings">
@@ -631,15 +827,16 @@ export default function ProfilePage() {
                         <AlertDialogHeader>
                             <AlertDialogTitleComponent>Are you absolutely sure?</AlertDialogTitleComponent>
                             <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete your post and its associated files from your browser's storage.
+                                    This action cannot be undone. This will permanently delete your post and its associated files from Firebase Storage.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeletePost} variant="destructive">Delete</AlertDialogAction>
+                            <AlertDialogAction onClick={handleDeletePost}>Delete</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+                </Protected>
             </main>
             <Footer />
         </div>

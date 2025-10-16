@@ -14,19 +14,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from './ui/sheet';
 import { useRouter } from 'next/navigation';
+import { useAuth } from './auth-provider';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase-config';
 
 export default function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // Default to logged in for demo
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const isMobile = useIsMobile();
   const router = useRouter();
-
-  const user = { 
-      username: 'Maalai',
-      avatar: 'https://picsum.photos/200'
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace('/login');
+    } catch (e) {
+      // optionally toast
+      console.error('Failed to sign out', e);
+    }
   };
   
   const handleSheetLinkClick = (path: string) => {
@@ -53,16 +59,16 @@ export default function Header() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
             <Avatar className="h-10 w-10 cursor-pointer">
-              <AvatarImage src={user.avatar} alt={user.username} data-ai-hint="user avatar" />
-              <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
+          <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} data-ai-hint="user avatar" />
+          <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{user.username}</p>
+            <p className="text-sm font-medium leading-none">{user?.displayName}</p>
               <p className="text-xs leading-none text-muted-foreground">
-                {user.username.toLowerCase()}@example.com
+              {user?.email?.toLowerCase()}
               </p>
             </div>
           </DropdownMenuLabel>
@@ -88,7 +94,7 @@ export default function Header() {
               <span>My List</span>
            </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
+        <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>
           </DropdownMenuItem>
@@ -103,43 +109,47 @@ export default function Header() {
           <h1 className="text-2xl font-bold font-headline text-primary">Share Space</h1>
         </Link>
         
-        {isMobile ? (
+        <div className="md:hidden">
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-               <Button variant="ghost" size="icon">
-                  <Menu />
-                  <span className="sr-only">Open menu</span>
-                </Button>
+              <Button variant="ghost" size="icon">
+                <Menu />
+                <span className="sr-only">Open menu</span>
+              </Button>
             </SheetTrigger>
             <SheetContent side="right">
-                <nav className="flex flex-col items-start gap-4 mt-8">
-                  {isLoggedIn ? (
-                    <>
-                      <div className="flex items-center gap-3 mb-4">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={user.avatar} alt={user.username} data-ai-hint="user avatar" />
-                          <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{user.username}</p>
-                          <p className="text-sm text-muted-foreground">{user.username.toLowerCase()}@example.com</p>
-                        </div>
+              <SheetHeader>
+                <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                <SheetDescription className="sr-only">Main navigation drawer</SheetDescription>
+              </SheetHeader>
+              <nav className="flex flex-col items-start gap-4 mt-8">
+                {isLoggedIn ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} data-ai-hint="user avatar" />
+                        <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{user?.displayName}</p>
+                        <p className="text-sm text-muted-foreground">{user?.email?.toLowerCase()}</p>
                       </div>
-                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/profile')}><User className="mr-2"/>Profile</Button>
-                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/account-settings')}><Settings className="mr-2"/>Settings</Button>
-                      <Button variant="ghost" className="w-full justify-start"><List className="mr-2"/>My List</Button>
-                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/upload')}><Upload className="mr-2"/>Upload</Button>
-                      <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/one-time-link')}><Lock className="mr-2"/>Secure Share</Button>
-                      <Button variant="ghost" className="w-full justify-start" onClick={() => { setIsLoggedIn(false); setIsSheetOpen(false); }}><LogOut className="mr-2"/>Log Out</Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => { handleSheetLinkClick('/login'); }} className="w-full">Sign In</Button>
-                  )}
-                </nav>
+                    </div>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/profile')}><User className="mr-2" />Profile</Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/account-settings')}><Settings className="mr-2" />Settings</Button>
+                    <Button variant="ghost" className="w-full justify-start"><List className="mr-2" />My List</Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/upload')}><Upload className="mr-2" />Upload</Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/one-time-link')}><Lock className="mr-2" />Secure Share</Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { handleLogout(); setIsSheetOpen(false); }}><LogOut className="mr-2" />Log Out</Button>
+                  </>
+                ) : (
+                  <Button onClick={() => { handleSheetLinkClick('/login'); }} className="w-full">Sign In</Button>
+                )}
+              </nav>
             </SheetContent>
           </Sheet>
-        ) : (
-          <nav className="flex items-center gap-2">
+        </div>
+          <nav className="hidden md:flex items-center gap-2">
             {isLoggedIn ? (
               <>
                 {navLinks}
@@ -151,7 +161,6 @@ export default function Header() {
                 </Button>
             )}
           </nav>
-        )}
       </div>
     </header>
   );

@@ -12,6 +12,7 @@ export interface UploadedFile {
     // The preview is a data URL for images, stored in localStorage for quick grid view.
     // For other types, this might be empty, as we'll generate blob URLs from IndexedDB on the fly.
     preview: string; 
+    url?: string;
     altText?: string;
     objectPosition?: string; // e.g. 'top', 'center', 'bottom'
     coverPhoto?: {
@@ -22,6 +23,7 @@ export interface UploadedFile {
 
 export interface Upload {
   id: string;
+  uid: string;
   type: 'video' | 'article' | 'image' | 'document';
   title: string;
   description: string;
@@ -29,4 +31,37 @@ export interface Upload {
   tags: string[];
   files: UploadedFile[];
   displayOption: 'individual' | 'carousel';
+}
+
+// Input types for creating posts and articles
+export interface CreatePostInput {
+    uid: string;
+    title: string;
+    description?: string;
+    tags?: string[];
+    link?: string;
+    displayOption: "individual" | "carousel";
+    files: Array<{
+        file: File;
+        altText?: string;
+        coverPhoto?: { file: File; preview: string };
+    }>;
+}
+
+export interface CreateArticleInput {
+    uid: string;
+    title: string;
+    content: string;
+    tags?: string[];
+    link?: string;
+    coverPhoto?: { file: File; preview: string };
+}
+
+export interface SearchResult {
+    id: string;
+    title: string;
+    description: string;
+    type: string;
+    cover?: string;
+    source: 'post' | 'article';
 }

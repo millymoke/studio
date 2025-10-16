@@ -5,6 +5,20 @@ This is a NextJS starter in Firebase Studio.
 
 To get started, take a look at src/app/page.tsx.
 
+## Environment
+
+Create a `.env.local` using the keys below (see `.env.example`):
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+BACKEND_URL=
+```
+
 ## Deploy to Vercel
 
 For a simpler deployment and billing experience, you can deploy this project directly to Vercel.
@@ -19,3 +33,14 @@ For a simpler deployment and billing experience, you can deploy this project dir
 4.  **Deploy**: Vercel will handle the rest. It will build your application and deploy it to a live URL.
 
 From there, you can easily set up manual billing with a credit card directly in your Vercel account settings. This process avoids all the complexities of Google Cloud's billing and IAM roles.
+
+## Hostinger (VPS) Deploy
+
+1. Build locally or in CI:
+   - `npm ci`
+   - `npm run build`
+2. Copy `.next`, `public`, `package.json`, `package-lock.json`, and `.env.production` to the server.
+3. Install and start:
+   - `npm ci --only=production`
+   - `npm run start` (behind Nginx/PM2)
+4. Set environment variables in your process manager or systemd service.
