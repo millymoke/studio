@@ -25,14 +25,19 @@ export async function POST(request: NextRequest) {
       .normalize('NFKD')
       .replace(/[^\w.-]+/g, '-')
       .replace(/-+/g, '-')
-      .replace(/^[-.]+|[-.]+$/g, '');
+      .replace(/^[-.]+|[-.]+$/g, '') // Remove leading/trailing dashes and dots
+      .replace(/-\./g, '.') // Remove dash before extension
+      .replace(/\.-/g, '.'); // Remove dash after extension
 
     const maxSize = Number(process.env.VPS_MAX_FILE_SIZE || 50 * 1024 * 1024);
     if (file.size > maxSize) {
       return NextResponse.json({ error: 'File too large' }, { status: 400 });
     }
 
-    const uploadDir = join(process.cwd(), 'public', 'files', directory);
+    // Save directly to public/uploads (Next.js serves /public/ as /)
+    // Remove 'uploads' from directory if it's already included
+    const cleanDirectory = directory.startsWith('uploads/') ? directory.replace('uploads/', '') : directory;
+    const uploadDir = join(process.cwd(), 'public', 'uploads', cleanDirectory);
 
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
@@ -43,7 +48,8 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
 
-    const fileUrl = `/files/${directory}/${encodeURIComponent(safeFilename)}`;
+    // URL will be /uploads/... instead of /files/...
+    const fileUrl = `/uploads/${cleanDirectory}/${encodeURIComponent(safeFilename)}`;
 
     return NextResponse.json({
       success: true,

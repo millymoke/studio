@@ -197,7 +197,7 @@ class VPSStorageService {
    * Get file URL
    */
   getFileUrl(filename: string, path: string = 'uploads'): string {
-    return `${this.config.baseUrl}/files/${path}/${filename}`;
+    return `${this.config.baseUrl}/uploads/${path}/${filename}`;
   }
 
   /**

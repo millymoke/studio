@@ -43,7 +43,9 @@ const uploadFileToStorage = async (file: File, path: string): Promise<string> =>
     .normalize('NFKD')
     .replace(/[^\w.-]+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
+    .replace(/^[-.]+|[-.]+$/g, '') // Remove leading/trailing dashes and dots
+    .replace(/-\./g, '.') // Remove dash before extension
+    .replace(/\.-/g, '.') // Remove dash after extension
   const safePath = directory ? `${directory}/${safeName}` : safeName
   console.log("🚀 ~ uploadFileToStorage ~ safePath:", safePath)
 
@@ -95,10 +97,16 @@ const sanitizeForFirestore = (obj: any): any => {
 const extractStoragePathFromUrl = (url: string): string | null => {
   try {
     const urlObj = new URL(url);
-    // VPS pattern: https://domain/files/<path>
-    const vpsMatch = urlObj.pathname.match(/\/files\/(.+)$/);
+    // VPS pattern: https://domain/uploads/<path>
+    const vpsMatch = urlObj.pathname.match(/\/uploads\/(.+)$/);
     if (vpsMatch) {
       return decodeURIComponent(vpsMatch[1]);
+    }
+
+    // Legacy VPS pattern: https://domain/files/<path>
+    const legacyVpsMatch = urlObj.pathname.match(/\/files\/(.+)$/);
+    if (legacyVpsMatch) {
+      return decodeURIComponent(legacyVpsMatch[1]);
     }
 
     // Try multiple patterns to match different Firebase Storage URL formats
