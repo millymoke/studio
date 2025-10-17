@@ -34,6 +34,32 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'sharespace.media',
+        port: '',
+        pathname: '/uploads/**',
+      },
+      // Also allow any path on the prod domain to be safe with absolute URLs
+      {
+        protocol: 'https',
+        hostname: 'sharespace.media',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9002',
+        pathname: '/uploads/**',
+      },
+      // Allow all paths on localhost during development
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9002',
+        pathname: '/**',
+      },
     ],
   },
 };
