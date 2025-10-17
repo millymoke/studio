@@ -35,7 +35,20 @@ const getFileType = (file: File | SerializableFile): 'image' | 'video' | 'docume
 }
 
 const uploadFileToStorage = async (file: File, path: string): Promise<string> => {
-  const result = await uploadFileToVPS(file, path);
+  // Ensure the filename portion is URL/FS safe before sending to API
+  const parts = path.split('/')
+  const fname = parts.pop() || ''
+  const directory = parts.join('/')
+  const safeName = fname
+    .normalize('NFKD')
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+  const safePath = directory ? `${directory}/${safeName}` : safeName
+  console.log("🚀 ~ uploadFileToStorage ~ safePath:", safePath)
+
+  const result = await uploadFileToVPS(file, safePath);
+  console.log("🚀 ~ uploadFileToStorage ~ result:", result)
   if (!result.success || !result.file) {
     throw new Error(result.error || 'Upload failed');
   }

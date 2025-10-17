@@ -17,7 +17,15 @@ export async function POST(request: NextRequest) {
     }
 
     const directory = path.split('/').slice(0, -1).join('/');
-    const filename = path.split('/').pop() || '';
+    const originalFilename = path.split('/').pop() || '';
+
+    // Sanitize filename to avoid spaces and special characters causing 404/invalid image
+    // Keep dots for extensions; replace other non-word chars with '-'
+    const safeFilename = originalFilename
+      .normalize('NFKD')
+      .replace(/[^\w.-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '');
 
     const maxSize = Number(process.env.VPS_MAX_FILE_SIZE || 50 * 1024 * 1024);
     if (file.size > maxSize) {
@@ -25,22 +33,22 @@ export async function POST(request: NextRequest) {
     }
 
     const uploadDir = join(process.cwd(), 'public', 'files', directory);
-    
+
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
     }
 
-    const filePath = join(uploadDir, filename);
+    const filePath = join(uploadDir, safeFilename);
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
 
-    const fileUrl = `/files/${path}`;
+    const fileUrl = `/files/${directory}/${encodeURIComponent(safeFilename)}`;
 
     return NextResponse.json({
       success: true,
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      filename,
+      filename: safeFilename,
       url: fileUrl,
       size: file.size,
       mimeType: file.type
