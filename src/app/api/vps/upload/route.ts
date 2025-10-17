@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Save directly to public/uploads (Next.js serves /public/ as /)
     // Remove 'uploads' from directory if it's already included
     const cleanDirectory = directory.startsWith('uploads/') ? directory.replace('uploads/', '') : directory;
-    const uploadDir = join(process.cwd(), 'public', 'uploads', cleanDirectory);
+    const uploadDir = join(process.cwd(), 'public', 'files', 'uploads', cleanDirectory);
 
     if (!existsSync(uploadDir)) {
       await mkdir(uploadDir, { recursive: true });
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer);
 
     // URL will be /uploads/... instead of /files/...
-    const fileUrl = `/uploads/${cleanDirectory}/${encodeURIComponent(safeFilename)}`;
+    const fileUrl = `/files/uploads/${cleanDirectory}/${encodeURIComponent(safeFilename)}`;
 
     return NextResponse.json({
       success: true,
