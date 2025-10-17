@@ -261,19 +261,19 @@ export function UploadForm() {
     const previewSrc = coverPhotoData?.preview || field.preview;
 
     if (fileType === 'image') {
-       return <Image src={previewSrc} alt="Preview" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+      return <img src={previewSrc} alt="Preview" className="w-20 h-20 object-cover rounded-md" />;
     }
     
     if (fileType === 'video') {
        if (coverPhotoData?.preview) {
-         return <Image src={coverPhotoData.preview} alt="Video cover" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+         return <img src={coverPhotoData.preview} alt="Video cover" className="w-20 h-20 object-cover rounded-md" />;
        }
        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
     }
 
     if (fileType === 'document' || fileType === 'article') {
        if (coverPhotoData?.preview) {
-         return <Image src={coverPhotoData.preview} alt="Document cover" width={80} height={80} className="w-20 h-20 object-cover rounded-md" />;
+         return <img src={coverPhotoData.preview} alt="Document cover" className="w-20 h-20 object-cover rounded-md" />;
        }
        return <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
     }

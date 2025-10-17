@@ -47,7 +47,7 @@ function SearchPageInner() {
             <CardContent className="p-0">
               <div className="aspect-[4/5] w-full relative rounded-t-lg overflow-hidden bg-muted">
                 {hit.cover ? (
-                  <Image src={hit.cover} alt={hit.title} fill className="object-cover" />
+                  <img src={hit.cover} alt={hit.title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">{hit.type}</div>
                 )}

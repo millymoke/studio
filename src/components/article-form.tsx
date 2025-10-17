@@ -225,7 +225,7 @@ export function ArticleForm() {
 
         {coverPreview && (
             <div className="w-full">
-                <Image src={coverPreview} alt="Cover preview" width={200} height={120} className="rounded-md object-cover"/>
+            <img src={coverPreview} alt="Cover preview" className="w-[200px] h-[120px] rounded-md object-cover" />
             </div>
         )}
 

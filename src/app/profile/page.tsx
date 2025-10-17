@@ -304,12 +304,10 @@ export default function ProfilePage() {
         return (
             <div className="absolute inset-0 bg-muted">
                 {previewSrc ? (
-                    <Image 
+                    <img 
                         src={previewSrc}
                         alt={upload.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                         style={{ objectPosition: firstFile.objectPosition || 'center' }}
                     />
                 ) : (
@@ -504,11 +502,9 @@ export default function ProfilePage() {
                         <CarouselContent>
                             {upload.files.map((file, index) => (
                                 <CarouselItem key={index} className="flex items-center justify-center">
-                                    <Image
+                                    <img
                                         src={file.localPreviewUrl || "https://picsum.photos/800/1000"}
                                         alt={file.altText || upload.title}
-                                        width={800}
-                                        height={1000}
                                         className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
                                         style={{ objectPosition: file.objectPosition || 'center' }}
                                     />
@@ -522,11 +518,9 @@ export default function ProfilePage() {
             }
             return (
                 <div className="flex items-center justify-center h-full">
-                    <Image
+                    <img
                         src={dynamicUrl}
                         alt={firstFile?.altText || upload.title}
-                        width={800}
-                        height={1000}
                         className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
                     />
                 </div>
@@ -560,11 +554,9 @@ export default function ProfilePage() {
             if (firstFile.coverPhoto?.preview) {
                 return (
                     <div className="flex items-center justify-center h-full">
-                        <Image
+                        <img
                             src={firstFile.coverPhoto.preview}
                             alt={upload.title}
-                            width={800}
-                            height={1000}
                             className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
                         />
                     </div>

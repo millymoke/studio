@@ -149,12 +149,12 @@ export function OneTimeLinkForm() {
      const previewSrc = firstFile?.coverPhoto?.preview || firstFile?.preview;
      switch (upload.type) {
         case 'image':
-            return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" data-ai-hint="fashion outdoor"/> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>;
+         return previewSrc ? <img src={previewSrc} alt={upload.title} className="w-full h-full object-cover" data-ai-hint="fashion outdoor" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>;
         case 'video':
-            return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
+         return previewSrc ? <img src={previewSrc} alt={upload.title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><PlayCircle className="w-8 h-8 text-muted-foreground" /></div>
         case 'article':
         case 'document':
-             return previewSrc ? <Image src={previewSrc} alt={upload.title} fill className="object-cover" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
+         return previewSrc ? <img src={previewSrc} alt={upload.title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
         default:
             return <div className="w-full h-full bg-muted flex items-center justify-center"><FileIcon className="w-8 h-8 text-muted-foreground" /></div>
      }

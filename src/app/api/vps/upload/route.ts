@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
 
-    // URL will be /uploads/... instead of /files/...
-    const fileUrl = `/files/uploads/${cleanDirectory}/${encodeURIComponent(safeFilename)}`;
+    // Public URL (use /files/uploads) + cache-busting param so it appears immediately
+    const basePublicPath = `/files/uploads/${cleanDirectory}/${encodeURIComponent(safeFilename)}`;
+    const fileUrl = `${basePublicPath}?v=${Date.now()}`;
 
     return NextResponse.json({
       success: true,

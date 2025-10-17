@@ -201,7 +201,7 @@ export function AccountSettingsForm() {
         )}
         <div className="flex items-center gap-6">
             {avatarPreview && (
-                <Image src={avatarPreview} alt="Avatar preview" width={96} height={96} className="w-24 h-24 rounded-full object-cover" data-ai-hint="user avatar"/>
+            <img src={avatarPreview} alt="Avatar preview" className="w-24 h-24 rounded-full object-cover" data-ai-hint="user avatar" />
             )}
             <FormItem className="flex-1">
                 <FormLabel>Profile Picture</FormLabel>
