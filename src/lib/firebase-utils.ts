@@ -13,6 +13,7 @@ import {
   limit,
   serverTimestamp,
   DocumentData,
+  startAfter,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase-config';
 import { uploadFileToVPS, deleteFileFromVPS, createVPSUserPath } from '@/lib/vps-storage-utils';
@@ -47,10 +48,8 @@ const uploadFileToStorage = async (file: File, path: string): Promise<string> =>
     .replace(/-\./g, '.') // Remove dash before extension
     .replace(/\.-/g, '.') // Remove dash after extension
   const safePath = directory ? `${directory}/${safeName}` : safeName
-  console.log("🚀 ~ uploadFileToStorage ~ safePath:", safePath)
-
+  
   const result = await uploadFileToVPS(file, safePath);
-  console.log("🚀 ~ uploadFileToStorage ~ result:", result)
   if (!result.success || !result.file) {
     throw new Error(result.error || 'Upload failed');
   }
@@ -339,14 +338,14 @@ export async function createArticle(input: CreateArticleInput): Promise<Upload> 
 // READ OPERATIONS
 // ============================================================================
 
-export async function getUserUploads(uid: string, limitCount: number = 25, startAfter?: any): Promise<{ uploads: Upload[], lastDoc: any }> {
+export async function getUserUploads(uid: string, limitCount: number = 25, cursor?: any): Promise<{ uploads: Upload[], lastDoc: any }> {
   let uploadsQuery;
 
-  if (startAfter) {
+  if (cursor) {
     uploadsQuery = query(
       collection(db, 'uploads'),
       where('uid', '==', uid),
-      startAfter(startAfter),
+      startAfter(cursor),
       limit(limitCount)
     );
   } else {

@@ -305,85 +305,162 @@ export function UploadForm() {
               {fields.map((field, index) => {
                   const fileType = getFileType(field.file);
                   return (
-                      <Card key={field.id}>
-                          <CardContent className="pt-4 flex items-start gap-4">
-                              {renderFilePreview(field)}
-                              <div className="flex-1 space-y-2">
-                              <p className="text-sm font-medium truncate">{field.file.name}</p>
-                              {fileType === 'image' ? (
-                              <FormField
-                                      control={form.control}
-                                      name={`files.${index}.altText`}
-                                      render={({ field }) => (
-                                          <FormItem className="flex-1">
-                                              <FormControl>
-                                                  <Input placeholder="Alt text" {...field} />
-                                              </FormControl>
-                                              <FormMessage />
-                                          </FormItem>
-                                      )}
-                                  />
-                              ) : fileType === 'video' ? (
-                                  <>
-                                  <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                          <Button type="button" variant="outline" size="sm">
-                                              <ImagePlus className="mr-2 h-4 w-4"/>
-                                              Set Cover Photo
-                                          </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent>
-                                          <DropdownMenuItem onSelect={() => coverPhotoInputRefs.current[index]?.click()}>
-                                              Upload Image
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onSelect={() => {
-                                              setVideoForThumbnail({file: field.file, index});
-                                              setThumbnailSelectorOpen(true);
-                                          }}>
-                                              Select Frame from Video
-                                          </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                  </DropdownMenu>
-                                  <Input 
-                                      type="file" 
-                                      accept="image/*" 
-                                      className="hidden"
-                                  ref={(el) => { coverPhotoInputRefs.current[index] = el; }}
-                                      onChange={(e) => {
-                                          if(e.target.files?.[0]) {
-                                              handleCoverPhotoChange(e.target.files[0], index)
-                                          }
-                                      }}
-                                  />
-                                  </>
-                              ) : ( // document or article
-                                  <FormItem className="flex-1">
-                                      <FormLabel className="sr-only">Cover Photo</FormLabel>
-                                      <FormControl>
-                                          <Input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            onChange={(e) => {
-                                                if(e.target.files?.[0]) {
-                                                    handleCoverPhotoChange(e.target.files[0], index)
-                                                }
-                                            }}
-                                            className="text-xs file:text-xs file:py-1 file:px-2"
-                                          />
-                                      </FormControl>
-                                      <FormDescription className="text-xs">
-                                          Upload an optional cover photo.
-                                      </FormDescription>
-                                      <FormMessage />
-                                  </FormItem>
+                    <Card key={field.id}>
+                      <CardContent className="pt-4 flex items-start gap-4">
+                        {renderFilePreview(field)}
+                        <div className="flex-1 space-y-2">
+                          <p className="text-sm font-medium truncate">
+                            {field.file.name}
+                          </p>
+                          {fileType === "image" ? (
+                            <FormField
+                              control={form.control}
+                              name={`files.${index}.altText`}
+                              render={({ field }) => (
+                                <FormItem className="flex-1">
+                                  <FormControl>
+                                    <Input placeholder="Alt text" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
                               )}
-                              </div>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                                  <Trash2 className="h-4 w-4"/>
-                              </Button>
-                          </CardContent>
-                      </Card>
-                  )
+                            />
+                          ) : fileType === "video" ? (
+                            <>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                  >
+                                    <ImagePlus className="mr-2 h-4 w-4" />
+                                    Set Cover Photo
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      coverPhotoInputRefs.current[
+                                        index
+                                      ]?.click()
+                                    }
+                                  >
+                                    Upload Image
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      setVideoForThumbnail({
+                                        file: field.file,
+                                        index,
+                                      });
+                                      setThumbnailSelectorOpen(true);
+                                    }}
+                                  >
+                                    Select Frame from Video
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              {/* ✅ Fixed alt text field */}
+                              <FormField
+                                control={form.control}
+                                name={`files.${index}.altText`}
+                                render={({ field }) => (
+                                  <FormItem className="flex-1">
+                                    <FormControl>
+                                      <Input
+                                        placeholder="Alt text"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                placeholder="Alt text"
+                                ref={(el) => {
+                                  coverPhotoInputRefs.current[index] = el;
+                                }}
+                                onChange={(e) => {
+                                  if (e.target.files?.[0]) {
+                                    handleCoverPhotoChange(
+                                      e.target.files[0],
+                                      index
+                                    );
+                                  }
+                                }}
+                              />
+                            </>
+                          ) : (
+                            // document or article
+                            <>
+                              {/* ✅ Cover Photo Upload Field */}
+                              <FormItem className="flex-1">
+                                <FormLabel className="sr-only">
+                                  Cover Photo
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      if (e.target.files?.[0]) {
+                                        handleCoverPhotoChange(
+                                          e.target.files[0],
+                                          index
+                                        );
+                                      }
+                                    }}
+                                    className="text-xs file:text-xs file:py-1 file:px-2"
+                                  />
+                                </FormControl>
+                                <FormDescription className="text-xs">
+                                  Upload an optional cover photo.
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+
+                              {/* ✅ Alt Text Input (properly connected to react-hook-form) */}
+                              <FormField
+                                control={form.control}
+                                name={`files.${index}.altText`}
+                                render={({ field }) => (
+                                  <FormItem className="flex-1">
+                                    <FormLabel className="sr-only">
+                                      Alt Text
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        placeholder="Alt text"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormDescription className="text-xs">
+                                      Provide a short description of the
+                                      document for accessibility and SEO.
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
               })}
           </div>
         )}

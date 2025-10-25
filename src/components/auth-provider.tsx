@@ -45,8 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           // TEMPORARILY DISABLED: Local uploads migration to prevent CORS errors
           // This migration was causing CORS issues with fetch calls
-          console.log('Local uploads migration temporarily disabled to prevent CORS errors');
-
+          
           try {
             if (typeof window !== 'undefined') {
               // Clear local storage without migration to prevent future issues
@@ -55,7 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (raw) {
                 const localUploads = JSON.parse(raw) as Upload[];
                 if (Array.isArray(localUploads) && localUploads.length > 0) {
-                  console.log('Clearing local uploads without migration:', localUploads.length, 'items');
                   localStorage.removeItem(UPLOADS_STORAGE_KEY);
                   localStorage.setItem(migrationFlagKey, '1');
                 }

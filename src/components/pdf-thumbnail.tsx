@@ -39,7 +39,6 @@ export function PdfThumbnail({ url, fileName = 'document.pdf', className, onClic
         setLoading(true);
         setError(null);
         
-        console.log('🚀 ~ PdfThumbnail ~ fetching PDF from URL:', url);
         
         // Use the utility function to fetch blob from Firebase Storage
         const { fetchFileBlobFromStorage } = await import('@/lib/firebase-utils');
@@ -53,7 +52,6 @@ export function PdfThumbnail({ url, fileName = 'document.pdf', className, onClic
         // Generate thumbnail
         await generateThumbnail(blob);
         
-        console.log('🚀 ~ PdfThumbnail ~ PDF thumbnail generated successfully');
         
       } catch (err) {
         console.error('🚀 ~ PdfThumbnail ~ error fetching PDF:', err);

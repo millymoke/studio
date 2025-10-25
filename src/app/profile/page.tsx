@@ -34,6 +34,7 @@ interface UploadWithLocalPreview extends Upload {
 }
 
 import Protected from '@/components/protected';
+import { log } from 'console';
 
 export default function ProfilePage() {
     const { toast } = useToast();
@@ -284,22 +285,13 @@ export default function ProfilePage() {
         let previewSrc: string | null = null;
         if (upload.type === 'article') {
             // Articles: use cover photo if available, otherwise no preview (will show icon)
+            
             previewSrc = firstFile.coverPhoto?.preview || null;
         } else {
             // Posts: use file preview or cover photo
             previewSrc = firstFile.coverPhoto?.preview || firstFile.preview || firstFile.localPreviewUrl || null;
         }
 
-        // Debug logging for cover photos
-        if (upload.type === 'article') {
-            console.log('Article cover photo data:', {
-                hasCoverPhoto: !!firstFile.coverPhoto,
-                coverPreview: firstFile.coverPhoto?.preview,
-                filePreview: firstFile.preview,
-                localPreview: firstFile.localPreviewUrl,
-                finalPreviewSrc: previewSrc
-            });
-        }
 
         return (
             <div className="absolute inset-0 bg-muted">
@@ -498,14 +490,14 @@ export default function ProfilePage() {
         if (isImage) {
             if (upload.displayOption === 'carousel' && upload.files.length > 1) {
                 return (
-                    <Carousel className="w-full max-w-4xl mx-auto" opts={{ loop: true }}>
+                    <Carousel id='secnkjsvkjvnksdjnvjksd' className="w-full mx-auto" opts={{ loop: true }}>
                         <CarouselContent>
                             {upload.files.map((file, index) => (
                                 <CarouselItem key={index} className="flex items-center justify-center">
                                     <img
                                         src={file.localPreviewUrl || "https://picsum.photos/800/1000"}
                                         alt={file.altText || upload.title}
-                                        className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-md"
+                                        className="w-full h-[100vh] object-contain rounded-md"
                                         style={{ objectPosition: file.objectPosition || 'center' }}
                                     />
                                 </CarouselItem>
@@ -517,13 +509,13 @@ export default function ProfilePage() {
                 );
             }
             return (
-                <div className="flex items-center justify-center h-full">
-                    <img
-                        src={dynamicUrl}
-                        alt={firstFile?.altText || upload.title}
-                        className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-md"
-                    />
-                </div>
+              <div className="flex items-center justify-center h-full">
+                <img
+                  src={dynamicUrl}
+                  alt={firstFile?.altText || upload.title}
+                  className="w-full h-[80vh] object-contain rounded-md"
+                />
+              </div>
             );
         }
 
@@ -639,7 +631,7 @@ export default function ProfilePage() {
                 const isLastElement = posts.length === index + 1 && isMyUploads;
                 return (
                     <div key={upload.id} ref={isLastElement ? lastUploadElementRef : null} className="group">
-                        <Dialog onOpenChange={(open) => !open && setViewingUpload(null)}>
+                        <Dialog onOpenChange={(open) => !open && setViewingUpload(null)} >
                             <DialogTrigger asChild>
                                 <div className="aspect-[4/5] w-full relative rounded-lg overflow-hidden shadow-lg mb-3 bg-muted cursor-pointer" onClick={() => setViewingUpload(upload)}>
                                     {renderUploadContent(upload)}
@@ -647,10 +639,10 @@ export default function ProfilePage() {
                             </DialogTrigger>
                             {viewingUpload && viewingUpload.id === upload.id && (
                                 <DialogContent className={cn(
-                                    "p-0 border-0 bg-transparent shadow-none w-auto",
+                                    "px-4 border-0 bg-transparent shadow-none w-auto",
                                      (viewingUpload.type === 'document' || viewingUpload.type === 'article')
-                                      ? "max-w-6xl h-[90vh]"
-                                      : "max-w-6xl flex items-center justify-center"
+                                      ? "w-full h-[100vh]"
+                                      : "w-full flex items-center justify-center"
                                 )}>
                                     <DialogHeader>
                                       <DialogTitle className="sr-only">{viewingUpload.title}</DialogTitle>
@@ -771,7 +763,7 @@ export default function ProfilePage() {
                                         </Button>
                                     </div>
                                 </div>
-                                    <p className="text-muted-foreground">{user?.email}</p>
+                                    {/* <p className="text-muted-foreground">{user?.email}</p> */}
                                     <p className="text-sm mt-3 max-w-xl mx-auto md:mx-0">{user?.metadata?.creationTime?.toString() || ''}</p>
                             </div>
                              <Button variant="outline" size="sm" asChild>

@@ -58,7 +58,7 @@ export function ArticleForm() {
     },
   });
   
-  const coverPhotoRef = form.register("coverPhoto");
+  // const coverPhotoRef = form.register("coverPhoto");
 
   const handleCoverPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,7 +79,9 @@ export function ArticleForm() {
     try {
       if (!user) {
       let coverPhotoData: UploadedFile['coverPhoto'] | undefined = undefined;
-      const coverFile = values.coverPhoto as File | undefined;
+        const coverFile = values.coverPhoto as File | undefined;
+    
+        
       
       if (coverFile instanceof File) {
          const serializableCoverFile: SerializableFile = {
@@ -144,9 +146,6 @@ export function ArticleForm() {
           coverFile = undefined;
         }
         
-        console.log('Article form - coverPhoto value:', values.coverPhoto);
-        console.log('Article form - coverFile:', coverFile);
-        console.log('Article form - coverPreview:', coverPreview);
         
         const article = await createArticle({
           uid: user.uid,
@@ -198,7 +197,7 @@ export function ArticleForm() {
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="content"
@@ -206,27 +205,57 @@ export function ArticleForm() {
             <FormItem>
               <FormLabel>Content</FormLabel>
               <FormControl>
-                <Textarea placeholder="Write your article here..." {...field} rows={10} />
+                <Textarea
+                  placeholder="Write your article here..."
+                  {...field}
+                  rows={10}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
-        <FormItem>
-            <FormLabel>Cover Photo (Optional)</FormLabel>
-            <FormControl>
-                <Input type="file" accept="image/*" {...coverPhotoRef} onChange={handleCoverPhotoChange} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
-            </FormControl>
-            <FormDescription>Upload a cover photo for your article.</FormDescription>
-            <FormMessage />
-        </FormItem>
 
+        <FormField
+          control={form.control}
+          name="coverPhoto"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cover Photo (Optional)</FormLabel>
+              <FormControl>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const preview = await readFileAsDataURL(file);
+                      setCoverPreview(preview);
+                      field.onChange(file); // ✅ update React Hook Form state
+                    } else {
+                      setCoverPreview(null);
+                      field.onChange(undefined);
+                    }
+                  }}
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                />
+              </FormControl>
+              <FormDescription>
+                Upload a cover photo for your article.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {coverPreview && (
-            <div className="w-full">
-            <img src={coverPreview} alt="Cover preview" className="w-[200px] h-[120px] rounded-md object-cover" />
-            </div>
+          <div className="w-full">
+            <img
+              src={coverPreview}
+              alt="Cover preview"
+              className="w-[200px] h-[120px] rounded-md object-cover"
+            />
+          </div>
         )}
 
         <FormField
@@ -238,7 +267,9 @@ export function ArticleForm() {
               <FormControl>
                 <Input placeholder="writing, travel, tech" {...field} />
               </FormControl>
-              <FormDescription>Comma-separated tags to help others find your article.</FormDescription>
+              <FormDescription>
+                Comma-separated tags to help others find your article.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -253,7 +284,9 @@ export function ArticleForm() {
               <FormControl>
                 <Input placeholder="https://example.com" {...field} />
               </FormControl>
-               <FormDescription>Add an external link to your article.</FormDescription>
+              <FormDescription>
+                Add an external link to your article.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -265,7 +298,9 @@ export function ArticleForm() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Publishing...
             </>
-          ) : "Publish Article"}
+          ) : (
+            "Publish Article"
+          )}
         </Button>
       </form>
     </Form>
