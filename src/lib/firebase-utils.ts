@@ -546,7 +546,9 @@ export async function getSavedPosts(uid: string): Promise<string[]> {
 }
 
 export async function getSavedPostsWithData(uid: string): Promise<Upload[]> {
-  const savedIds = await getSavedPosts(uid);
+  // Import from local storage utils instead
+  const { getSavedPosts: getLocalSavedPosts } = await import('@/lib/local-storage-utils');
+  const savedIds = await getLocalSavedPosts(uid);
   const posts: Upload[] = [];
   
   for (const id of savedIds) {

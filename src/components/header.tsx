@@ -86,7 +86,7 @@ export default function Header() {
             </Link>
           </DropdownMenuItem>
            <DropdownMenuItem asChild>
-            <Link href="/profile?tab=bookmarked">
+            <Link href="/bookmarks">
               <Bookmark className="mr-2 h-4 w-4" />
               <span>Bookmarks</span>
             </Link>
@@ -139,7 +139,7 @@ export default function Header() {
                     </div>
                     <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/profile')}><User className="mr-2" />Profile</Button>
                     <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/account-settings')}><Settings className="mr-2" />Settings</Button>
-                    <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/profile?tab=bookmarked')}><Bookmark className="mr-2" />Bookmarks</Button>
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/bookmarks')}><Bookmark className="mr-2" />Bookmarks</Button>
                     <Button variant="ghost" className="w-full justify-start"><List className="mr-2" />My List</Button>
                     <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/upload')}><Upload className="mr-2" />Upload</Button>
                     <Button variant="ghost" className="w-full justify-start" onClick={() => handleSheetLinkClick('/one-time-link')}><Lock className="mr-2" />Secure Share</Button>

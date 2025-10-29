@@ -78,7 +78,7 @@ const generateOneTimeLinkFlow = ai.defineFlow(
     // Simulate a more realistic-looking secure link
     if (output && output.oneTimeLink) {
         const uniqueToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        output.oneTimeLink = `https://sharespa.ce/s/${uniqueToken}`;
+        output.oneTimeLink = `https://www.sharespace.media/s/${uniqueToken}`;
     }
     
     return output!;

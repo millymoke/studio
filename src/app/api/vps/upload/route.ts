@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const path = (formData.get('path') as string | null) || 'uploads';
     // userId optional; path may already include it
-    
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });

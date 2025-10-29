@@ -53,7 +53,7 @@ export default function Home() {
               </Button>
             </div>
             <div className="w-full h-auto aspect-video relative rounded-lg overflow-hidden shadow-lg">
-              <Image src="https://sharespace.media/photo.jpg" alt="tree" data-ai-hint="tree" fill className="object-cover" />
+              <Image src="/photo1.jpg" alt="tree" data-ai-hint="tree" fill className="object-cover" />
             </div>
           </div>
         </section>
@@ -61,7 +61,7 @@ export default function Home() {
         <section className="py-16">
           <div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
             <div className="w-full h-auto aspect-video relative rounded-lg overflow-hidden shadow-lg order-last md:order-first">
-              <Image src="https://sharespace.media/veer.jpg" alt="Ocean waves" data-ai-hint="ocean waves" fill className="object-cover object-top" />
+              <Image src="/photo2.jpg" alt="Ocean waves" data-ai-hint="ocean waves" fill className="object-cover object-top" />
             </div>
              <div className="text-center md:text-left">
               <h2 className="text-3xl md:text-4xl font-bold font-headline mb-4">Discover Content</h2>

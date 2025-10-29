@@ -27,7 +27,8 @@ import { PdfViewer } from '@/components/pdf-viewer';
 import { PdfThumbnail } from '@/components/pdf-thumbnail';
 import { OfficeDocsThumbnail } from '@/components/office-docs-thumbnail';
 import { useAuth } from '@/components/auth-provider';
-import { getUserUploads, updatePost, updateArticle, deleteUpload, fetchFileContentFromStorage, getSavedPostsWithData, savePost, unsavePost, getBookmarkedPosts, bookmarkPost, unbookmarkPost } from '@/lib/firebase-utils';
+import { getUserUploads, updatePost, updateArticle, deleteUpload, fetchFileContentFromStorage, getSavedPostsWithData } from '@/lib/firebase-utils';
+import { savePost, unsavePost, getBookmarkedPosts, bookmarkPost, unbookmarkPost } from '@/lib/local-storage-utils';
 import { getAbsoluteFileUrl } from '@/lib/url-utils';
 
 interface UploadWithLocalPreview extends Upload {
@@ -936,14 +937,10 @@ export default function ProfilePage() {
                         </CardHeader>
                         <CardContent>
                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                <TabsList className="grid w-full grid-cols-3 mb-6">
+                                <TabsList className="grid w-full grid-cols-2 mb-6">
                                     <TabsTrigger value="uploads">
                                         <LayoutGrid className="mr-2 h-4 w-4" />
                                         My Uploads
-                                    </TabsTrigger>
-                                    <TabsTrigger value="bookmarked">
-                                        <Bookmark className="mr-2 h-4 w-4" />
-                                        Bookmarked
                                     </TabsTrigger>
                                     <TabsTrigger value="saved">
                                         <CheckSquare className="mr-2 h-4 w-4" />
@@ -961,12 +958,7 @@ export default function ProfilePage() {
                                     )}
                                     {isClient && renderGrid(uploads, true)}
                                 </TabsContent>
-                                <TabsContent value="bookmarked">
-                                    {isClient && bookmarkedIds.size === 0 && (
-                                        <p className="text-center text-muted-foreground py-10">You haven't bookmarked anything yet.</p>
-                                    )}
-                                    {isClient && bookmarkedIds.size > 0 && renderGrid(uploads.filter(u => bookmarkedIds.has(u.id)), false)}
-                                </TabsContent>
+
                                 <TabsContent value="saved">
                                     {isClient && !isLoading && savedUploads.length === 0 && (
                                         <p className="text-center text-muted-foreground py-10">You haven't saved anything yet.</p>

@@ -117,6 +117,14 @@ export function OneTimeLinkForm() {
       });
 
       if (result.oneTimeLink) {
+        const linkId = result.oneTimeLink.split('/').pop();
+        
+        await fetch('/api/vps/secure-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ linkId, fileDataUri, fileName: file?.name || 'file' })
+        });
+        
         setGeneratedLink(result.oneTimeLink);
         toast({
           title: "Link Generated!",
